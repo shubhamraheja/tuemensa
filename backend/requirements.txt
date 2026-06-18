@@ -5,3 +5,4 @@ beanie==1.25.0
 pydantic==2.7.1
 pydantic-settings==2.3.0
 httpx==0.27.0
+beautifulsoup4==4.12.3
