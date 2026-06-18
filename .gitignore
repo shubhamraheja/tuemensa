@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# ─── Android / React Native ──────────────────────────────────────────────────
+android/node_modules/
+android/.gradle/
+android/local.properties
+android/build/
+android/app/build/
+android/app/debug/
+android/app/release/
+android/.idea/
+android/android.iml
+android/app/app.iml
+android/.keystore
+*.apk
+*.aab
+
+# ─── Python backend ──────────────────────────────────────────────────────────
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+backend/*.egg-info/
+
+# ─── React frontend ──────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Build outputs
+dist/
+build/
