@@ -54,6 +54,8 @@ cp .env.example .env   # edit as needed
 uvicorn app.main:app --reload --port 8000
 ```
 
+For nearby food lookup, set `GOOGLE_MAPS_API_KEY` in `backend/.env`. The key needs access to the Google Places API.
+
 **Endpoints** (all prefixed `/api/v1`)
 
 | Method | Path | Description |
@@ -64,6 +66,7 @@ uvicorn app.main:app --reload --port 8000
 | PUT | `/menus/{id}` | Update menu |
 | DELETE | `/menus/{id}` | Delete menu |
 | GET | `/locations/` | List locations |
+| GET | `/locations/nearby-food` | Find nearby restaurants, cafes, bakeries, or takeaway spots with Google Places |
 | POST | `/locations/` | Create location |
 | PUT | `/locations/{id}` | Update location |
 | DELETE | `/locations/{id}` | Delete location |

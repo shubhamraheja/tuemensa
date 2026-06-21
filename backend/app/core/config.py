@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     port: int = 8000
     environment: str = "development"
+    google_maps_api_key: str | None = None
 
 
 settings = Settings()

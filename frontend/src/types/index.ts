@@ -36,3 +36,16 @@ export interface Location {
   email?: string;
   active: boolean;
 }
+
+export interface NearbyFoodPlace {
+  place_id: string;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  rating?: number;
+  user_rating_count?: number;
+  open_now?: boolean;
+  maps_uri?: string;
+  primary_type?: string;
+}

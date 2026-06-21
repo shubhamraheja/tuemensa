@@ -21,3 +21,16 @@ class LocationUpdate(BaseModel):
     phone: str | None = None
     email: str | None = None
     active: bool | None = None
+
+
+class NearbyFoodPlace(BaseModel):
+    place_id: str
+    name: str
+    address: str | None = None
+    latitude: float
+    longitude: float
+    rating: float | None = None
+    user_rating_count: int | None = None
+    open_now: bool | None = None
+    maps_uri: str | None = None
+    primary_type: str | None = None
