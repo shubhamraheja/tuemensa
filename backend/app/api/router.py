@@ -1,7 +1,22 @@
+import logging
+from importlib import import_module
+
 from fastapi import APIRouter
-from .routes.menus import router as menus_router
-from .routes.locations import router as locations_router
+
+logger = logging.getLogger(__name__)
 
 api_router = APIRouter(prefix="/api/v1")
-api_router.include_router(menus_router)
-api_router.include_router(locations_router)
+
+
+def include_route_module(module_name: str, router_name: str = "router") -> None:
+    try:
+        module = import_module(f".routes.{module_name}", package=__package__)
+    except ModuleNotFoundError as exc:
+        logger.warning("Skipping %s routes: %s", module_name, exc)
+        return
+
+    api_router.include_router(getattr(module, router_name))
+
+
+include_route_module("menus")
+include_route_module("locations")
