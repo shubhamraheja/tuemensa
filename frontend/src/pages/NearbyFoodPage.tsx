@@ -1,3 +1,4 @@
+import axios from 'axios';
 import {CSSProperties, FormEvent, useState} from 'react';
 import {getNearbyFood, NearbyFoodParams} from '@/services/locationService';
 import {NearbyFoodPlace} from '@/types';
@@ -12,14 +13,15 @@ const placeTypeOptions: {value: PlaceType; label: string}[] = [
 ];
 
 export default function NearbyFoodPage() {
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
+  const [latitude, setLatitude] = useState('48.521600');
+  const [longitude, setLongitude] = useState('9.057600');
   const [radiusMeters, setRadiusMeters] = useState(1200);
   const [placeType, setPlaceType] = useState<PlaceType>('restaurant');
   const [places, setPlaces] = useState<NearbyFoodPlace[]>([]);
   const [loading, setLoading] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -55,6 +57,7 @@ export default function NearbyFoodPage() {
 
     setLoading(true);
     setError(null);
+    setSearched(true);
     try {
       const response = await getNearbyFood({
         latitude: lat,
@@ -65,11 +68,8 @@ export default function NearbyFoodPage() {
       });
       setPlaces(response.data);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Nearby food lookup failed. Check the backend Google Maps API key.',
-      );
+      setPlaces([]);
+      setError(getSearchErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -156,8 +156,19 @@ export default function NearbyFoodPage() {
       {error && <p style={styles.error}>{error}</p>}
 
       <section style={styles.results}>
-        {places.length === 0 && !loading && (
-          <p style={styles.empty}>Search for restaurants, cafes, bakeries, or takeaway spots nearby.</p>
+        {loading && <p style={styles.empty}>Looking up nearby food spots...</p>}
+        {!loading && places.length > 0 && (
+          <p style={styles.summary}>
+            Found {places.length} {places.length === 1 ? 'place' : 'places'} nearby.
+          </p>
+        )}
+        {!loading && places.length === 0 && !searched && (
+          <p style={styles.empty}>Use the default Tübingen coordinates or your current location, then search.</p>
+        )}
+        {!loading && places.length === 0 && searched && !error && (
+          <p style={styles.empty}>
+            No places found. Try a larger radius or a different food type.
+          </p>
         )}
         {places.map(place => (
           <article key={place.place_id} style={styles.resultCard}>
@@ -183,6 +194,20 @@ export default function NearbyFoodPage() {
       </section>
     </main>
   );
+}
+
+function getSearchErrorMessage(err: unknown) {
+  if (axios.isAxiosError(err)) {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') {
+      return detail;
+    }
+    return err.message;
+  }
+
+  return err instanceof Error
+    ? err.message
+    : 'Nearby food lookup failed. Check the backend Google Maps API key.';
 }
 
 const styles: Record<string, CSSProperties> = {
@@ -266,6 +291,7 @@ const styles: Record<string, CSSProperties> = {
   },
   results: {display: 'grid', gap: 12, marginTop: 18},
   empty: {color: '#5f6368'},
+  summary: {margin: 0, color: '#188038', fontWeight: 700},
   resultCard: {
     display: 'flex',
     justifyContent: 'space-between',
