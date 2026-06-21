@@ -40,10 +40,12 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24.x'
+          cache: 'npm'
+          cache-dependency-path: android/package-lock.json
 
       - name: Install dependencies
         working-directory: android
-        run: npm install
+        run: npm ci
 
       - name: Type check
         working-directory: android
