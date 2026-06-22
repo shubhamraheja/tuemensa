@@ -15,6 +15,17 @@ class PriceRange(str, enum.Enum):
     PREMIUM = "20+"
 
 
+class PlaceType(str, enum.Enum):
+    """The kind of establishment a place is."""
+
+    MENSA = "mensa"
+    CAFETERIA = "cafeteria"
+    RESTAURANT = "restaurant"
+    CAFE = "cafe"
+    BISTRO = "bistro"
+    BAKERY = "bakery"
+
+
 class Place(Base):
     """A food/restaurant option.
 
@@ -28,6 +39,14 @@ class Place(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
     location: Mapped[str] = mapped_column(String(255))
+
+    # What kind of place this is (mensa, restaurant, ...).
+    place_type: Mapped[PlaceType | None] = mapped_column(
+        Enum(PlaceType), nullable=True
+    )
+
+    # Free-text cuisine offered, e.g. "italian", "chinese".
+    cuisine: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # List of menu items, e.g. [{"name": "Pasta", "price": 4.5}, ...]
     menu: Mapped[list] = mapped_column(JSON, default=list)
