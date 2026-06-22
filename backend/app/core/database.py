@@ -1,5 +1,7 @@
+import logging
 from collections.abc import AsyncGenerator, Sequence
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -8,6 +10,8 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -29,11 +33,12 @@ async def init_db(document_models: Sequence[type] | None = None) -> None:
     # Import models so they register themselves on Base.metadata.
     from ..models import location, menu  # noqa: F401
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields a database session per request."""
-    async with SessionLocal() as session:
-        yield session
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except (SQLAlchemyError, OSError):
+        logger.warning(
+            "Database initialization skipped because the database is unavailable. "
+            "The API will still start for non-database endpoints.",
+            exc_info=True,
+        )
