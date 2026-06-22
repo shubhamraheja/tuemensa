@@ -44,3 +44,26 @@ class PlaceRead(PlaceBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
+
+class PlaceCoordinate(BaseModel):
+    latitude: float
+    longitude: float
+
+
+class NearbyFoodPlace(BaseModel):
+    id: str
+    name: str
+    address: str | None = None
+    location: PlaceCoordinate
+    rating: float | None = None
+    user_rating_count: int | None = None
+    price_level: str | None = None
+    open_now: bool | None = None
+    types: list[str] = []
+    google_maps_uri: str | None = None
+    website_uri: str | None = None
+
+
+class NearbyFoodResponse(BaseModel):
+    places: list[NearbyFoodPlace]
