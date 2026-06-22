@@ -2,9 +2,9 @@ from .base import BaseScraper
 from ..models.menu import Menu
 
 
-class MensaSuedScraper(BaseScraper):
-    location_name = "Mensa Süd"
+class MensaHungerElkScraper(BaseScraper):
+    location_name = "Mensa HungerElk"
 
     async def scrape(self) -> list[Menu]:
-        # TODO: implement scraping for Mensa Süd
+        # TODO: implement scraping for Mensa HungerElk
         return []

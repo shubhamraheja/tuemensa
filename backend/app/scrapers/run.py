@@ -2,12 +2,12 @@ import asyncio
 from ..core.database import init_db
 from ..models.menu import Menu
 from ..models.location import Location
-from .mensa_hungryelk import MensaSuedScraper
-from .mensa_maxplanck import MensaNordScraper
+from .mensa_hungryelk import MensaHungerElkScraper
+from .mensa_maxplanck import MensaMaxPlanckScraper, MensaNordScraper
 
 SCRAPERS = [
-    MensaSuedScraper(),
-    MensaNordScraper(),
+    MensaHungerElkScraper(),
+    MensaMaxPlanckScraper(),
 ]
 
 
