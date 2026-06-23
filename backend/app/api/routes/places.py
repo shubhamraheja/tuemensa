@@ -44,11 +44,11 @@ async def get_nearby_food(
     payload = {
         "includedTypes": ["restaurant", "cafe", "bakery", "meal_takeaway"],
         "maxResultCount": max_results,
-        "rankPreference": "DISTANCE",
+        "rankPreference": "POPULARITY",  
         "locationRestriction": {
             "circle": {
-                "center": {"latitude": latitude, "longitude": longitude},
-                "radius": radius,
+                "center": {"latitude": float(latitude), "longitude": float(longitude)},
+                "radius": float(radius),
             }
         },
     }
