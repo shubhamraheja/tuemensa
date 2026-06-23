@@ -13,7 +13,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]  // <-- Change this line here
     }
   },
   "include": ["src", "App.tsx", "index.js"]
