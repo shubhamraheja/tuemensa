@@ -1,6 +1,6 @@
-# TUE Mensa
+# Nearby Food Finder
 
-A monorepo for the TUE Mensa app — Android client, Python backend, and React web frontend.
+A monorepo for a nearby food lookup app with a Python FastAPI backend, React web frontend, and Android client shell.
 
 ```
 tuemensa/
@@ -9,7 +9,60 @@ tuemensa/
 └── frontend/    # React web frontend (Vite)
 ```
 
----
+## Docker Compose
+
+Create a root `.env` file with your Google Maps key:
+
+```bash
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+```
+
+Then run the full stack:
+
+```bash
+docker compose up --build
+```
+
+The web app runs at `http://localhost:5173`, and the backend runs at `http://localhost:8000`.
+
+The frontend proxies `/api` to the backend container, so browser requests stay on the same local origin during development.
+
+## Backend
+
+Python 3.12, FastAPI, PostgreSQL, and Google Places API.
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
+
+Endpoints are prefixed with `/api/v1`.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/places/nearby-food` | Search nearby restaurants, cafes, bakeries, and takeaway spots via Google Places |
+| GET | `/places/` | List saved places |
+| POST | `/places/` | Create saved place |
+| PUT | `/places/{id}` | Update saved place |
+| DELETE | `/places/{id}` | Delete saved place |
+| GET | `/config/maps` | Return browser Google Maps config |
+| GET | `/health` | Health check |
+
+## Frontend
+
+React 18, Vite, TypeScript, React Router v6, Axios, and Google Maps JavaScript API.
+
+```bash
+cd frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+The food lookup page opens at `http://localhost:5173`. It starts near Tuebingen, asks for browser location permission when available, lets you click the map to move the search center, and lists nearby food places from Google Places.
 
 ## Android App
 
@@ -18,92 +71,8 @@ React Native 0.73, TypeScript, React Navigation, Zustand, Axios.
 ```bash
 cd android
 npm install
-npm run android        # run on emulator/device
-npm start              # start Metro bundler
+npm run android
+npm start
 ```
 
-The app talks to the backend at `http://10.0.2.2:8000` (Android emulator loopback).
-
-**Structure**
-
-```
-android/
-├── App.tsx
-├── index.js
-├── src/
-│   ├── constants/     # API base URL, endpoints, app config
-│   ├── navigation/    # React Navigation bottom tabs
-│   ├── screens/       # MenusScreen, LocationsScreen
-│   ├── services/      # apiClient, menuService, locationService
-│   ├── store/         # Zustand store (filters, selected location, etc.)
-│   └── types/         # Shared TypeScript interfaces
-└── app/               # Native Android (Kotlin, Gradle)
-```
-
----
-
-## Backend
-
-Python 3.12, FastAPI, MongoDB (via Beanie ODM), JWT auth.
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # edit as needed
-uvicorn app.main:app --reload --port 8000
-```
-
-**Endpoints** (all prefixed `/api/v1`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/menus/` | List menus (filter by `date`, `location`) |
-| GET | `/menus/{id}` | Get menu |
-| POST | `/menus/` | Create menu |
-| PUT | `/menus/{id}` | Update menu |
-| DELETE | `/menus/{id}` | Delete menu |
-| GET | `/locations/` | List locations |
-| POST | `/locations/` | Create location |
-| PUT | `/locations/{id}` | Update location |
-| DELETE | `/locations/{id}` | Delete location |
-| GET | `/health` | Health check |
-
-**Structure**
-
-```
-backend/
-├── app/
-│   ├── main.py
-│   ├── core/        # config, database
-│   ├── models/      # Beanie documents (Menu, Location)
-│   ├── schemas/     # Pydantic request/response models
-│   └── api/
-│       └── routes/  # menus, locations
-└── tests/
-```
-
----
-
-## Frontend
-
-React 18, Vite, TypeScript, React Router v6, Zustand, Axios.
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev            # starts at http://localhost:5173
-```
-
-The Vite dev server proxies `/api` to `http://localhost:8000`.
-
-**Structure**
-
-```
-frontend/
-└── src/
-    ├── pages/         # MenusPage
-    ├── services/      # apiClient, menuService
-    └── types/         # Shared TypeScript interfaces
-```
+The Android app talks to the backend at `http://10.0.2.2:8000` when running in an emulator.
