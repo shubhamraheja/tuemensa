@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {getMapsConfig, getNearbyFood, NearbyFoodPlace} from '@/services/placeService';
 import './FoodLookupPage.css';
@@ -62,7 +63,6 @@ export default function FoodLookupPage() {
   const map = useRef<any>(null);
   const markers = useRef<any[]>([]);
   const centerMarker = useRef<any>(null);
-  const radiusRef = useRef(1200);
 
   const [center, setCenter] = useState<Coordinates>(DEFAULT_CENTER);
   const [radius, setRadius] = useState(1200);
@@ -70,10 +70,6 @@ export default function FoodLookupPage() {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    radiusRef.current = radius;
-  }, [radius]);
 
   const selectedPlace = useMemo(
     () => places.find(place => place.id === selectedPlaceId) ?? places[0],
@@ -112,8 +108,9 @@ export default function FoodLookupPage() {
     [],
   );
 
+  // Updated to accept an optional currentRadius parameter to avoid stale state bugs on change
   const searchNearby = useCallback(
-    async (searchCenter: Coordinates) => {
+    async (searchCenter: Coordinates, currentRadius: number = radius) => {
       setLoading(true);
       setError(null);
 
@@ -121,7 +118,7 @@ export default function FoodLookupPage() {
         const response = await getNearbyFood({
           latitude: searchCenter.latitude,
           longitude: searchCenter.longitude,
-          radius: radiusRef.current,
+          radius: currentRadius,
         });
 
         setPlaces(response.places);
@@ -133,7 +130,7 @@ export default function FoodLookupPage() {
         setLoading(false);
       }
     },
-    [renderMarkers],
+    [renderMarkers, radius],
   );
 
   const moveCenter = useCallback(
@@ -203,7 +200,7 @@ export default function FoodLookupPage() {
               });
             },
             () => moveCenter(DEFAULT_CENTER),
-            {enableHighAccuracy: true, timeout: 8000},
+            {enableHighAccuracy: false, timeout: 8000, maximumAge: 0},
           );
         } else {
           moveCenter(DEFAULT_CENTER);
@@ -240,7 +237,7 @@ export default function FoodLookupPage() {
         setLoading(false);
         setError('Location permission was denied or unavailable.');
       },
-      {enableHighAccuracy: true, timeout: 8000},
+      {enableHighAccuracy: false, timeout: 8000, maximumAge: 0},
     );
   };
 
@@ -254,11 +251,18 @@ export default function FoodLookupPage() {
         <div className="toolbar-actions">
           <label>
             Radius
-            <select value={radius} onChange={event => setRadius(Number(event.target.value))}>
-              <option value={600}>600 m</option>
-              <option value={1200}>1.2 km</option>
-              <option value={2500}>2.5 km</option>
-              <option value={5000}>5 km</option>
+            <select 
+              value={radius} 
+              onChange={event => {
+                const nextRadius = Number(event.target.value);
+                setRadius(nextRadius);
+                void searchNearby(center, nextRadius); // Instantly updates search when option changes
+              }}
+            >
+              <option value={100}>100 m</option>
+              <option value={250}>250 m</option>
+              <option value={500}>500 m</option>
+              <option value={1000}>1 km</option>
             </select>
           </label>
           <button type="button" onClick={() => void searchNearby(center)}>
