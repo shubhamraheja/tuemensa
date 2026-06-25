@@ -1,31 +1,35 @@
 import React, {useEffect, useState} from 'react';
 import {
-  View,
-  Text,
+  ActivityIndicator,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
+  Text,
+  View,
 } from 'react-native';
-import {getMenus} from '@/services/menuService';
-import {Menu} from '@/types';
+import apiClient from '@/services/apiClient';
+import {Place} from '@/types';
 
 export default function MenusScreen() {
-  const [menus, setMenus] = useState<Menu[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    getMenus({date: today})
-      .then(res => setMenus(res.data))
-      .catch(() => setError('Failed to load menus'))
+    apiClient
+      .get<{places: Place[]}>('/places/nearby-food', {
+        params: {latitude: 48.5216, longitude: 9.0576, radius: 5000},
+      })
+      .then(res => {
+        setPlaces(res.data.places.filter(p => p.menu && p.menu.length > 0));
+      })
+      .catch(() => setError('Could not load menus.'))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color="#2563eb" />
       </View>
     );
   }
@@ -33,24 +37,34 @@ export default function MenusScreen() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (places.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.emptyText}>No menus available yet. Run the seed script to populate places.</Text>
       </View>
     );
   }
 
   return (
     <FlatList
-      data={menus}
-      keyExtractor={item => item.id}
+      data={places}
+      keyExtractor={item => String(item.id)}
       contentContainerStyle={styles.list}
       renderItem={({item}) => (
         <View style={styles.card}>
-          <Text style={styles.location}>{item.location}</Text>
-          <Text style={styles.date}>{item.date}</Text>
-          {item.items.map(menuItem => (
-            <View key={menuItem.id} style={styles.menuItem}>
-              <Text style={styles.itemName}>{menuItem.name}</Text>
-              <Text style={styles.itemPrice}>€{menuItem.price.toFixed(2)}</Text>
+          <Text style={styles.placeName}>{item.name}</Text>
+          {item.address && <Text style={styles.address}>{item.address}</Text>}
+          {item.menu.map((menuItem, i) => (
+            <View key={i} style={styles.menuRow}>
+              <Text style={styles.menuName}>{menuItem.name}</Text>
+              {menuItem.price != null && (
+                <Text style={styles.menuPrice}>€{menuItem.price.toFixed(2)}</Text>
+              )}
             </View>
           ))}
         </View>
@@ -60,23 +74,30 @@ export default function MenusScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: {flex: 1, justifyContent: 'center', alignItems: 'center'},
-  list: {padding: 16},
+  center: {flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20},
+  list: {padding: 12},
+  emptyText: {textAlign: 'center', color: '#9ca3af', fontSize: 14, lineHeight: 22},
+  errorText: {color: '#dc2626', fontSize: 14},
   card: {
     backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     marginBottom: 12,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
   },
-  location: {fontSize: 18, fontWeight: 'bold'},
-  date: {fontSize: 12, color: '#666', marginBottom: 8},
-  menuItem: {
+  placeName: {fontSize: 16, fontWeight: '700', color: '#111', marginBottom: 2},
+  address: {fontSize: 12, color: '#9ca3af', marginBottom: 10},
+  menuRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderColor: '#f3f4f6',
   },
-  itemName: {fontSize: 14, flex: 1},
-  itemPrice: {fontSize: 14, fontWeight: '600'},
-  error: {color: 'red'},
+  menuName: {fontSize: 14, color: '#374151', flex: 1},
+  menuPrice: {fontSize: 14, fontWeight: '600', color: '#111'},
 });
