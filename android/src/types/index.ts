@@ -1,54 +1,52 @@
-export interface NutritionInfo {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber?: number;
-}
+export type MealType = 'meal' | 'snack';
+export type PriceTier = '<5' | '5-10' | '>10';
 
 export interface MenuItem {
-  id: string;
   name: string;
-  description: string;
-  price: number;
-  category: string;
-  allergens?: string[];
-  nutritionInfo?: NutritionInfo;
-  available: boolean;
-  image?: string;
+  price?: number | null;
 }
 
-export interface Menu {
-  id: string;
-  date: string;
-  location: string;
-  items: MenuItem[];
-  createdAt: string;
-  updatedAt: string;
+export interface OpeningHours {
+  day?: string;
+  open?: string;
+  close?: string;
+  description?: string;
 }
 
-export interface Location {
-  id: string;
+export interface Place {
+  id: number;
+  google_place_id?: string | null;
   name: string;
-  address: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  rating?: number | null;
+  user_rating_count?: number | null;
+  price_tier?: PriceTier | null;
+  meal_type?: MealType | null;
+  cuisine?: string | null;
+  is_vegan_friendly?: boolean | null;
+  is_vegetarian_friendly?: boolean | null;
+  allergens?: string[] | null;
+  menu: MenuItem[];
+  opening_hours: OpeningHours[];
+  google_maps_uri?: string | null;
+  website_uri?: string | null;
+  open_now?: boolean | null;
+  distance_m?: number | null;
+}
+
+export interface NearbySearchResponse {
+  places: Place[];
+}
+
+export interface NearbyFoodParams {
   latitude: number;
   longitude: number;
-  openingHours: {day: string; open: string; close: string}[];
-  phone?: string;
-  email?: string;
-  active: boolean;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  message?: string;
-}
-
-export interface PaginatedResponse<T> extends ApiResponse<T> {
-  pagination: {
-    total: number;
-    limit: number;
-    skip: number;
-  };
+  radius?: number;
+  meal_type?: MealType | null;
+  price_tier?: PriceTier | null;
+  is_vegan_friendly?: boolean | null;
+  is_vegetarian_friendly?: boolean | null;
+  allergens_exclude?: string[];
 }

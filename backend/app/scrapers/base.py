@@ -18,10 +18,7 @@ class BaseScraper(ABC):
         async with SessionLocal() as session:
             for place in places:
                 existing = await session.scalar(
-                    select(Place).where(
-                        Place.name == place.name,
-                        Place.location == place.location,
-                    )
+                    select(Place).where(Place.name == place.name)
                 )
                 if existing:
                     existing.menu = place.menu
