@@ -1,95 +1,60 @@
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...core.config import settings
 from ...core.database import get_db
 from ...models.place import Place, PlaceType
-from ...schemas.place import NearbyFoodResponse, PlaceCreate, PlaceRead, PlaceUpdate
+from ...schemas.place import (
+    PlaceCreate,
+    PlaceRead,
+    PlaceUpdate,
+    PlaceWithDistance,
+)
+from ...services import maps
 
 router = APIRouter(prefix="/places", tags=["places"])
 
-GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby"
-GOOGLE_FIELD_MASK = ",".join(
-    [
-        "places.id",
-        "places.displayName",
-        "places.formattedAddress",
-        "places.location",
-        "places.rating",
-        "places.userRatingCount",
-        "places.priceLevel",
-        "places.currentOpeningHours.openNow",
-        "places.types",
-        "places.googleMapsUri",
-        "places.websiteUri",
-    ]
-)
 
-
-@router.get("/nearby-food", response_model=NearbyFoodResponse)
-async def get_nearby_food(
+@router.get("/distances", response_model=list[PlaceWithDistance])
+async def get_places_with_distances(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
-    radius: int = Query(1200, ge=100, le=5000),
-    max_results: int = Query(15, ge=1, le=20),
+    mode: str = Query("walking", pattern="^(walking|driving|bicycling|transit)$"),
+    db: AsyncSession = Depends(get_db),
 ):
-    if not settings.google_maps_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GOOGLE_MAPS_API_KEY is not configured",
+    """Call 2 — read places from the DB and attach the travel distance from the
+    user's current location, nearest first.
+
+    Uses the Routes API when available; if it isn't (no key / billing disabled /
+    transport error) it falls back to straight-line distances and logs a warning.
+    """
+    places = (
+        await db.scalars(
+            select(Place)
+            .where(Place.ignore.is_(False))
+            .where(Place.latitude.is_not(None))
+            .where(Place.longitude.is_not(None))
         )
+    ).all()
 
-    payload = {
-        "includedTypes": ["restaurant", "cafe", "bakery", "meal_takeaway"],
-        "maxResultCount": max_results,
-        "rankPreference": "DISTANCE",
-        "locationRestriction": {
-            "circle": {
-                "center": {"latitude": latitude, "longitude": longitude},
-                "radius": radius,
-            }
-        },
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": settings.google_maps_api_key,
-        "X-Goog-FieldMask": GOOGLE_FIELD_MASK,
-    }
+    results = [PlaceWithDistance.model_validate(place) for place in places]
 
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(GOOGLE_PLACES_URL, json=payload, headers=headers)
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        detail = exc.response.text or "Google Places request failed"
-        raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not reach Google Places",
-        ) from exc
+    if results:
+        destinations = [(p.latitude, p.longitude) for p in places]
+        # Routes API when available, otherwise straight-line (logged on fallback).
+        distances = await maps.travel_distances(
+            (latitude, longitude), destinations, mode=mode
+        )
+        for item, dist in zip(results, distances):
+            if dist:
+                for field, value in dist.items():
+                    setattr(item, field, value)
 
-    return {
-        "places": [
-            {
-                "id": place["id"],
-                "name": place.get("displayName", {}).get("text", "Unnamed place"),
-                "address": place.get("formattedAddress"),
-                "location": place["location"],
-                "rating": place.get("rating"),
-                "user_rating_count": place.get("userRatingCount"),
-                "price_level": place.get("priceLevel"),
-                "open_now": place.get("currentOpeningHours", {}).get("openNow"),
-                "types": place.get("types", []),
-                "google_maps_uri": place.get("googleMapsUri"),
-                "website_uri": place.get("websiteUri"),
-            }
-            for place in response.json().get("places", [])
-            if "id" in place and "location" in place
-        ]
-    }
+    # Nearest first; places without a distance sort to the end.
+    results.sort(
+        key=lambda p: p.distance_meters if p.distance_meters is not None else float("inf")
+    )
+    return results
 
 
 @router.get("/", response_model=list[PlaceRead])

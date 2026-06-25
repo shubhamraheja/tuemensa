@@ -1,36 +1,19 @@
 import apiClient from './apiClient';
+import {Place, PlaceWithDistance} from '@/types';
 
-export interface MapsConfig {
-  googleMapsApiKey: string | null;
-}
+/** All places stored in the DB (no distances). Fallback when location is unavailable. */
+export const getPlaces = () =>
+  apiClient.get<Place[]>('/places/').then(response => response.data);
 
-export interface NearbyFoodPlace {
-  id: string;
-  name: string;
-  address?: string | null;
-  location: {
-    latitude: number;
-    longitude: number;
-  };
-  rating?: number | null;
-  user_rating_count?: number | null;
-  price_level?: string | null;
-  open_now?: boolean | null;
-  types: string[];
-  google_maps_uri?: string | null;
-  website_uri?: string | null;
-}
-
-export interface NearbyFoodResponse {
-  places: NearbyFoodPlace[];
-}
-
-export const getMapsConfig = () =>
-  apiClient.get<MapsConfig>('/config/maps').then(response => response.data);
-
-export const getNearbyFood = (params: {
+/**
+ * Call 2 — places from the DB with live travel distances from the given
+ * location, nearest first.
+ */
+export const getPlacesWithDistances = (params: {
   latitude: number;
   longitude: number;
-  radius: number;
-  max_results?: number;
-}) => apiClient.get<NearbyFoodResponse>('/places/nearby-food', {params}).then(response => response.data);
+  mode?: 'walking' | 'driving' | 'bicycling' | 'transit';
+}) =>
+  apiClient
+    .get<PlaceWithDistance[]>('/places/distances', {params})
+    .then(response => response.data);
