@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...core.config import settings
 from ...core.database import get_db
 from ...models.place import Place, PlaceType
 from ...schemas.place import (
@@ -13,6 +14,23 @@ from ...schemas.place import (
 from ...services import maps
 
 router = APIRouter(prefix="/places", tags=["places"])
+
+
+@router.post("/scrape")
+async def trigger_scrape():
+    """Debug-only: run all mensa scrapers now and report what was written.
+
+    Disabled in production. The scrapers also run on startup and every Monday
+    morning; this is a manual trigger for the debug stage.
+    """
+    if settings.environment == "production":
+        raise HTTPException(
+            status_code=403, detail="Scrape trigger is disabled in production"
+        )
+    from ...scrapers.run import scrape_all
+
+    summary = await scrape_all(enrich=True)
+    return {"success": True, **summary}
 
 
 @router.get("/distances", response_model=list[PlaceWithDistance])

@@ -63,7 +63,9 @@ async def _upsert(session: AsyncSession, places: list[Place]) -> tuple[int, int]
     return created, updated
 
 
-async def scrape_all(enrich: bool = False) -> None:
+async def scrape_all(enrich: bool = False) -> dict:
+    """Run all scrapers, upsert results, optionally enrich. Returns a summary."""
+    per_scraper: list[dict] = []
     collected: list[Place] = []
     for scraper in SCRAPERS:
         try:
@@ -71,19 +73,38 @@ async def scrape_all(enrich: bool = False) -> None:
         except Exception:  # noqa: BLE001 - one source must not break the rest
             logger.exception("Scraper %s crashed", scraper.name)
             places = []
+        per_scraper.append(
+            {
+                "scraper": scraper.name,
+                "places": len(places),
+                "menu_items": sum(len(p.menu) for p in places),
+            }
+        )
         logger.info("Scraper %s -> %d place(s)", scraper.name, len(places))
         collected.extend(places)
 
+    summary = {
+        "scrapers": per_scraper,
+        "total_places": len(collected),
+        "created": 0,
+        "updated": 0,
+        "enriched": 0,
+    }
     if not collected:
         logger.warning("No places scraped; nothing to upsert.")
-        return
+        return summary
 
     async with SessionLocal() as session:
         created, updated = await _upsert(session, collected)
+        summary["created"], summary["updated"] = created, updated
         logger.info("Scrape upsert: %d created, %d updated", created, updated)
         if enrich:
-            count = await enrich_places(session, [p.name for p in collected])
-            logger.info("Enriched %d scraped place(s) via Google.", count)
+            summary["enriched"] = await enrich_places(
+                session, [p.name for p in collected]
+            )
+            logger.info("Enriched %d scraped place(s) via Google.", summary["enriched"])
+
+    return summary
 
 
 async def main() -> None:

@@ -17,3 +17,18 @@ export const getPlacesWithDistances = (params: {
   apiClient
     .get<PlaceWithDistance[]>('/places/distances', {params})
     .then(response => response.data);
+
+export interface ScrapeSummary {
+  success: boolean;
+  total_places: number;
+  created: number;
+  updated: number;
+  enriched: number;
+  scrapers: {scraper: string; places: number; menu_items: number}[];
+}
+
+/** Debug: trigger all mensa scrapers on the backend. Can take ~10-30s. */
+export const runScrapers = () =>
+  apiClient
+    .post<ScrapeSummary>('/places/scrape', undefined, {timeout: 120000})
+    .then(response => response.data);
