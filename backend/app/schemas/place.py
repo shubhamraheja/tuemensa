@@ -6,6 +6,8 @@ from ..models.place import PlaceType, PriceRange
 class MenuItem(BaseModel):
     name: str
     price: float | None = None
+    # True when the price is per 100 g (e.g. Max-Planck-Haus mains) rather than per dish.
+    price_per_100g: bool = False
     day: str | None = None  # "Mon".."Fri" for weekly menus; None if not day-specific
     category: str | None = None  # e.g. "Tagesmenü vegan", "Main Course", "DESSERT"
     allergens: list[str] = []

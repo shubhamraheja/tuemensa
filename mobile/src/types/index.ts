@@ -1,3 +1,6 @@
+// Shapes mirror the backend API (backend/app/schemas/place.py) and the web
+// frontend's types (frontend/src/types/index.ts).
+
 export type PlaceType =
   | 'mensa'
   | 'cafeteria'
@@ -11,7 +14,7 @@ export interface MenuItem {
   price?: number | null;
   /** True when the price is per 100 g rather than per dish. */
   price_per_100g?: boolean;
-  day?: string | null;
+  day?: string | null; // "Mon".."Fri" for weekly menus; null if not day-specific
   category?: string | null;
   allergens?: string[];
 }
@@ -53,4 +56,14 @@ export interface PlaceWithDistance extends Place {
   duration_text?: string | null;
 }
 
-export type DisplayMode = 'list' | 'cards';
+export type DisplayMode = 'list' | 'swipe' | 'cards' | 'map';
+
+export interface LatLng {
+  latitude: number;
+  longitude: number;
+}
+
+export interface SavedLocation extends LatLng {
+  id: string;
+  name: string;
+}

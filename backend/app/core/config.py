@@ -7,7 +7,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://tuemensa:tuemensa@localhost:5432/tuemensa"
     jwt_secret: str = "change_me_in_production"
     jwt_expire_minutes: int = 10080  # 7 days
-    cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:8081",  # Expo web dev server
+    ]
     port: int = 8000
     environment: str = "development"
     google_maps_api_key: str | None = None

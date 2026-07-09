@@ -1,9 +1,9 @@
 """Scraper for The Hungry Elk (Technologiepark Tübingen).
 
-The menu is published only as a weekly PDF. Its text layer extracts, but the
-columnar (per-weekday) layout doesn't survive extraction cleanly, so this is a
-best-effort parse: dishes are grouped by their category header (SALATBOWL,
-PIZZA & PASTA, …) with the internal price, but not reliably per weekday.
+The weekly menu is a PDF laid out as a 5-weekday × 5-category grid. Plain text
+extraction destroys the columns, so we parse positionally with pdfplumber:
+weekday columns come from the header x-centers, category rows from the
+left-gutter labels, and each (day, category) cell holds one dish.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import logging
 import re
 
 import httpx
-from pypdf import PdfReader
+import pdfplumber
 
 from ..models.place import Place, PlaceType
 from .base import BaseScraper
@@ -22,11 +22,29 @@ logger = logging.getLogger(__name__)
 
 PDF_URL = "https://stollsteimer.de/easy-pdf-restaurant-menu/menu-files/menu-thehungryelk.pdf"
 
-_CATEGORIES = ["SALATBOWL", "PIZZA & PASTA", "AUS DER REGION", "STREET FOOD", "DESSERT"]
-_PRICE_RE = re.compile(r"Int:\s*([\d.,]+)\s*€")
+GERMAN_DAYS = {
+    "MONTAG": "Mon",
+    "DIENSTAG": "Tue",
+    "MITTWOCH": "Wed",
+    "DONNERSTAG": "Thu",
+    "FREITAG": "Fri",
+}
+# First gutter word -> full category label.
+CATEGORY_STARTS = {
+    "SALATBOWL": "SALATBOWL",
+    "PIZZA": "PIZZA & PASTA",
+    "AUS": "AUS DER REGION",
+    "STREET": "STREET FOOD",
+    "DESSERT": "DESSERT",
+}
+
+# First euro amount in a cell = internal price ("6,80 €/ 8,80 €" or "Int: 6,90 €").
+_PRICE_RE = re.compile(r"(\d+[.,]\d{2})\s*€")
 _ALLERGEN_RE = re.compile(r"\(([A-Z][A-Za-z0-9,\s/]*)\)")
-# Everything from here on is the allergen legend / footer, not dishes.
-_FOOTER_MARKERS = ("Allergene und kennzeichnungspflichtige", "MENÜ", "Öffnungszeiten")
+_SKIP_RE = re.compile(r"siehe\s+Aushang", re.IGNORECASE)
+_PER_100G_RE = re.compile(r"100\s*g", re.IGNORECASE)
+# Vertical tolerance when clustering words into lines / matching row bands.
+_LINE_TOLERANCE = 8
 
 _OPENING_HOURS = [
     {"day": day, "open": open_, "close": close_}
@@ -35,67 +53,129 @@ _OPENING_HOURS = [
 ]
 
 
-def _match_category(line: str) -> tuple[str | None, str]:
-    for category in _CATEGORIES:
-        if line.upper().startswith(category):
-            return category, line[len(category):].strip()
-    return None, line
-
-
 def _clean_name(text: str) -> str:
-    text = _ALLERGEN_RE.sub("", text)  # drop allergen codes
+    text = _ALLERGEN_RE.sub("", text)  # drop allergen code groups
+    text = _PRICE_RE.sub("", text)
     text = re.sub(r"\s+l\s+", " ", f" {text} ")  # PDF bullet separators
     return re.sub(r"\s+", " ", text).strip(" ,")[:120]
 
 
-def _allergens(lines: list[str]) -> list[str]:
-    codes: list[str] = []
-    for match in _ALLERGEN_RE.findall(" ".join(lines)):
-        codes.extend(c.strip() for c in re.split(r"[,/]", match) if c.strip())
-    return sorted(set(codes))
+def _allergens(text: str) -> list[str]:
+    codes: set[str] = set()
+    for group in _ALLERGEN_RE.findall(text):
+        codes.update(c.strip() for c in re.split(r"[,/]", group) if c.strip())
+    return sorted(codes)
 
 
-def _parse(text: str) -> list[dict]:
-    lines = [ln.strip() for ln in text.splitlines()]
+def _lines(cell_words: list[dict]) -> list[str]:
+    """Cluster a cell's words into text lines, top-to-bottom."""
+    ordered = sorted(cell_words, key=lambda w: (w["top"], w["x0"]))
+    lines: list[str] = []
+    current: list[dict] = []
+    last_top: float | None = None
+    for word in ordered:
+        if last_top is not None and abs(word["top"] - last_top) > _LINE_TOLERANCE:
+            lines.append(" ".join(w["text"] for w in current))
+            current = []
+        current.append(word)
+        last_top = word["top"]
+    if current:
+        lines.append(" ".join(w["text"] for w in current))
+    return lines
+
+
+def build_menu(words: list[dict]) -> list[dict]:
+    """Pure grid parser over pdfplumber-style words ({text, x0, x1, top}).
+
+    Returns menu-item dicts with real weekday labels. Exposed separately so it
+    can be unit-tested with synthetic word layouts.
+    """
+    headers = sorted(
+        (
+            (GERMAN_DAYS[w["text"].upper()], (w["x0"] + w["x1"]) / 2, w["top"])
+            for w in words
+            if w["text"].upper() in GERMAN_DAYS
+        ),
+        key=lambda h: h[1],
+    )
+    if len(headers) < 2:
+        logger.warning("Hungry Elk PDF: weekday headers not found; got %s", headers)
+        return []
+    centers = [center for _, center, _ in headers]
+    header_top = min(top for _, _, top in headers)
+    # Words left of the first day column are the category gutter.
+    gutter_cut = centers[0] - (centers[1] - centers[0]) * 0.75
+
+    categories = sorted(
+        (
+            (CATEGORY_STARTS[w["text"].upper()], w["top"])
+            for w in words
+            if w["x0"] < gutter_cut
+            and w["text"].upper() in CATEGORY_STARTS
+            and w["top"] > header_top
+        ),
+        key=lambda c: c[1],
+    )
+    if not categories:
+        logger.warning("Hungry Elk PDF: category labels not found")
+        return []
+    # Everything below the allergen legend is footer.
+    legend_top = min(
+        (w["top"] for w in words if w["text"].startswith("Allergene")),
+        default=float("inf"),
+    )
+
+    def day_for(word: dict) -> str | None:
+        center = (word["x0"] + word["x1"]) / 2
+        if center < gutter_cut:
+            return None
+        distances = [abs(center - c) for c in centers]
+        return headers[distances.index(min(distances))][0]
+
+    def category_for(word: dict) -> str | None:
+        if word["top"] <= categories[0][1] - _LINE_TOLERANCE:
+            return None
+        if word["top"] >= legend_top - _LINE_TOLERANCE / 2:
+            return None
+        current = None
+        for name, top in categories:
+            if word["top"] >= top - _LINE_TOLERANCE:
+                current = name
+        return current
+
+    cells: dict[tuple[str, str], list[dict]] = {}
+    for word in words:
+        if word["top"] <= header_top + _LINE_TOLERANCE:
+            continue
+        day = day_for(word)
+        category = category_for(word)
+        if day and category:
+            cells.setdefault((category, day), []).append(word)
+
     menu: list[dict] = []
-    seen: set[tuple[str, float | None]] = set()
-    category: str | None = None
-    buffer: list[str] = []
-
-    for line in lines:
-        if not line:
-            continue
-        if any(line.startswith(marker) for marker in _FOOTER_MARKERS):
-            break
-
-        new_category, rest = _match_category(line)
-        if new_category:
-            category = new_category
-            buffer = [rest] if rest else []
-            continue
-
-        price_match = _PRICE_RE.search(line)
-        if price_match:
-            if buffer:
-                name = _clean_name(buffer[0])
-                price = float(price_match.group(1).replace(",", "."))
-                key = (name.lower(), price)
-                if name and key not in seen:
-                    seen.add(key)
-                    menu.append(
-                        {
-                            "name": name,
-                            "price": price,
-                            "day": None,
-                            "category": category,
-                            "allergens": _allergens(buffer),
-                        }
-                    )
-            buffer = []
-            continue
-
-        buffer.append(line)
-
+    for category, _top in categories:
+        for day in GERMAN_DAYS.values():
+            cell = cells.get((category, day))
+            if not cell:
+                continue
+            lines = _lines(cell)
+            text = " ".join(lines)
+            if _SKIP_RE.search(text):
+                continue  # "siehe Aushang" placeholder, not a dish
+            name = _clean_name(lines[0])
+            if not name:
+                continue
+            price_match = _PRICE_RE.search(text)
+            menu.append(
+                {
+                    "name": name,
+                    "price": float(price_match.group(1).replace(",", ".")) if price_match else None,
+                    "price_per_100g": bool(_PER_100G_RE.search(text)),
+                    "day": day,
+                    "category": category,
+                    "allergens": _allergens(text),
+                }
+            )
     return menu
 
 
@@ -107,9 +187,13 @@ class HungryElkScraper(BaseScraper):
             async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
                 response = await client.get(PDF_URL)
                 response.raise_for_status()
-            reader = PdfReader(io.BytesIO(response.content))
-            text = "\n".join(page.extract_text() or "" for page in reader.pages)
-            menu = _parse(text)
+            with pdfplumber.open(io.BytesIO(response.content)) as pdf:
+                words = [
+                    word
+                    for page in pdf.pages
+                    for word in page.extract_words()
+                ]
+            menu = build_menu(words)
         except Exception:  # noqa: BLE001 - never break startup
             logger.exception("Hungry Elk scrape failed")
             menu = []

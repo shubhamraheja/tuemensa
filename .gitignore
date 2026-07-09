@@ -16,18 +16,13 @@
 npm-debug.log*
 yarn-error.log*
 
-# ─── Android / React Native ──────────────────────────────────────────────────
-android/node_modules/
-android/.gradle/
-android/local.properties
-android/build/
-android/app/build/
-android/app/debug/
-android/app/release/
-android/.idea/
-android/android.iml
-android/app/app.iml
-android/.keystore
+# ─── Mobile (Expo / React Native) ─────────────────────────────────────────────
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/android/
+mobile/ios/
 *.apk
 *.aab
 

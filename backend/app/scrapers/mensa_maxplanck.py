@@ -52,9 +52,33 @@ def _extract_price(text: str) -> float | None:
     return float(match.group(1).replace(",", "."))
 
 
+# Parenthesized code groups like "(g/a1/i)", "(f,i,a1)" or "(20,g,17,a1)".
+# Tokens are letter+optional digit (allergens, per the MPH legend) or 1-2 digit
+# numbers (additives). Plain-word parentheticals don't match.
+_CODE_GROUP_RE = re.compile(
+    r"\(\s*((?:[a-z]\d?|\d{1,2})(?:\s*[,/]\s*(?:[a-z]\d?|\d{1,2}))*)\s*\)"
+)
+_ALLERGEN_TOKEN_RE = re.compile(r"^[a-z]\d?$")
+_PER_100G_RE = re.compile(r"/\s*100\s*g", re.IGNORECASE)
+
+
+def _extract_allergens(text: str) -> list[str]:
+    """Letter-coded allergens from the code groups; numeric additives dropped."""
+    codes: set[str] = set()
+    for group in _CODE_GROUP_RE.findall(text):
+        for token in re.split(r"[,/]", group):
+            token = token.strip()
+            if _ALLERGEN_TOKEN_RE.match(token):
+                codes.add(token)
+    return sorted(codes)
+
+
 def _clean(text: str) -> str:
-    # Drop the price token; collapse whitespace.
-    return _PRICE_RE.sub("", text).strip(" : ")
+    # Drop code groups, price tokens and "/100g" remnants; collapse whitespace.
+    text = _CODE_GROUP_RE.sub("", text)
+    text = _PRICE_RE.sub("", text)
+    text = _PER_100G_RE.sub("", text)
+    return re.sub(r"\s+", " ", text).strip(" : ")
 
 
 class MaxPlanckHausScraper(BaseScraper):
@@ -103,9 +127,10 @@ class MaxPlanckHausScraper(BaseScraper):
                         {
                             "name": _clean(special),
                             "price": _extract_price(special),
+                            "price_per_100g": bool(_PER_100G_RE.search(special)),
                             "day": day,
                             "category": "Choice of the Day",
-                            "allergens": [],
+                            "allergens": _extract_allergens(special),
                         }
                     )
 
@@ -117,9 +142,10 @@ class MaxPlanckHausScraper(BaseScraper):
                         {
                             "name": _clean(text),
                             "price": _extract_price(text),
+                            "price_per_100g": bool(_PER_100G_RE.search(text)),
                             "day": day,
                             "category": category,
-                            "allergens": [],
+                            "allergens": _extract_allergens(text),
                         }
                     )
         return menu

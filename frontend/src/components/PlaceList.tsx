@@ -100,7 +100,12 @@ export default function PlaceList({places}: Props) {
                                 {item.category && <em className="menu-cat">{item.category}: </em>}
                                 {item.name}
                               </span>
-                              {item.price != null && <span>€ {item.price.toFixed(2)}</span>}
+                              {item.price != null && (
+                                <span>
+                                  € {item.price.toFixed(2)}
+                                  {item.price_per_100g ? ' / 100 g' : ''}
+                                </span>
+                              )}
                             </li>
                           ))}
                         </ul>
