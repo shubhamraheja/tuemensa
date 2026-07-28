@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { filterMenu } from '../lib/allergens';
+import { resolveApiUrl } from '../lib/api';
 import { formatDishPrice, formatPrice, formatRating, formatType } from '../lib/format';
 import { getOpenStatus } from '../lib/hours';
 import { groupByDay, isServedToday, todayLabel } from '../lib/menu';
@@ -49,6 +50,7 @@ export default function PlaceDetailSheet() {
   const status = getOpenStatus(place.opening_hours);
   const price = formatPrice(place);
   const rating = formatRating(place);
+  const photoUrl = resolveApiUrl(place.photo_url);
   const statusText =
     status.state === 'unknown'
       ? 'Hours unknown'
@@ -59,6 +61,17 @@ export default function PlaceDetailSheet() {
   return (
     <Sheet open onClose={() => selectPlace(null)}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {photoUrl ? (
+          <>
+            <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="cover" />
+            {(place.photo_attributions ?? []).length > 0 ? (
+              <Text style={styles.photoAttribution}>
+                Photo: {(place.photo_attributions ?? []).join(', ')}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
+
         <Text style={styles.name}>{place.name}</Text>
 
         <View style={styles.tagRow}>
@@ -189,6 +202,17 @@ const styles = StyleSheet.create({
   name: {
     ...type.display,
     color: palette.ink,
+  },
+  photo: {
+    width: '100%',
+    height: 190,
+    borderRadius: radii.lg,
+    backgroundColor: palette.surfaceAlt,
+  },
+  photoAttribution: {
+    ...type.caption,
+    color: palette.inkFaint,
+    marginTop: -spacing.xs,
   },
   tagRow: {
     flexDirection: 'row',

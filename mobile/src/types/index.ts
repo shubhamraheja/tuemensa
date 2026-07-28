@@ -46,6 +46,9 @@ export interface Place {
   user_rating_count?: number | null;
   google_maps_uri?: string | null;
   website_uri?: string | null;
+  photo_name?: string | null;
+  photo_url?: string | null;
+  photo_attributions?: string[];
   ignore: boolean;
 }
 

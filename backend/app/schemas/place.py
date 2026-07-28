@@ -39,6 +39,9 @@ class PlaceBase(BaseModel):
     user_rating_count: int | None = None
     google_maps_uri: str | None = None
     website_uri: str | None = None
+    photo_name: str | None = None
+    photo_url: str | None = None
+    photo_attributions: list[str] | None = None
     ignore: bool = False
 
 
@@ -65,6 +68,8 @@ class PlaceUpdate(BaseModel):
     user_rating_count: int | None = None
     google_maps_uri: str | None = None
     website_uri: str | None = None
+    photo_name: str | None = None
+    photo_attributions: list[str] | None = None
     ignore: bool | None = None
 
 

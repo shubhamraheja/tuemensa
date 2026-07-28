@@ -1,7 +1,13 @@
 import { Place, PlaceWithDistance } from '../types';
 
 // EXPO_PUBLIC_* vars are inlined at bundle time (restart expo after changes).
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+
+export function resolveApiUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${BASE_URL.replace(/\/$/, '')}${path.replace(/^\/api\/v1/, '')}`;
+}
 
 async function request<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, {

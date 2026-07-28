@@ -13,12 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.place import Place
 from . import maps
-from .seed import _PRICE_MAP, _classify, _opening_hours, _price_units
+from .seed import _PRICE_MAP, _cache_photo, _classify, _opening_hours, _photo_fields, _price_units
 
 logger = logging.getLogger(__name__)
 
 
-def _apply(place: Place, raw: dict) -> None:
+async def _apply(place: Place, raw: dict) -> None:
     loc = raw.get("location") or {}
     # Only fill coordinates if the scraper didn't supply them (avoids a wrong
     # text-search match overwriting good coordinates).
@@ -59,6 +59,12 @@ def _apply(place: Place, raw: dict) -> None:
         place.place_type = _classify(raw["types"])
     if raw.get("types") and not place.google_types:
         place.google_types = raw["types"]
+    photo_name, photo_attributions = _photo_fields(raw)
+    if photo_name:
+        place.photo_name = photo_name
+        place.photo_attributions = photo_attributions
+        if not place.photo_cache_file:
+            await _cache_photo(place, photo_name)
 
 
 async def enrich_places(session: AsyncSession, names: list[str]) -> int:
@@ -81,7 +87,7 @@ async def enrich_places(session: AsyncSession, names: list[str]) -> int:
             continue
         if not raw:
             continue
-        _apply(place, raw)
+        await _apply(place, raw)
         enriched += 1
 
     if enriched:

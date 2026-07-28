@@ -1,4 +1,9 @@
+import hashlib
+from pathlib import Path
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +19,9 @@ from ...schemas.place import (
 from ...services import maps
 
 router = APIRouter(prefix="/places", tags=["places"])
+
+PHOTO_CACHE_DIR = Path(__file__).resolve().parents[3] / "uploads" / "photos"
+PHOTO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/scrape")
@@ -73,6 +81,36 @@ async def get_places_with_distances(
         key=lambda p: p.distance_meters if p.distance_meters is not None else float("inf")
     )
     return results
+
+
+@router.get("/photo")
+async def get_place_photo(
+    name: str = Query(..., min_length=1),
+    max_width_px: int = Query(1200, ge=1, le=4800),
+    max_height_px: int | None = Query(None, ge=1, le=4800),
+):
+    """Resolve a stored Google photo name to a short-lived image redirect."""
+    try:
+        uri = await maps.photo_uri(
+            name,
+            max_width_px=max_width_px,
+            max_height_px=max_height_px,
+        )
+    except maps.MapsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    return RedirectResponse(uri)
+
+
+@router.get("/photo-cache/{filename}")
+async def get_cached_photo(filename: str):
+    """Serve a locally cached place photo if one exists."""
+    file_path = PHOTO_CACHE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(file_path)
 
 
 @router.get("/", response_model=list[PlaceRead])

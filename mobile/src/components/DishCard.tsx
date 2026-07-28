@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { prettifyToken } from '../lib/allergens';
+import { resolveApiUrl } from '../lib/api';
 import { formatDishPrice } from '../lib/format';
 import { MenuItem, PlaceWithDistance } from '../types';
 import { fonts, palette, radii, spacing, type } from '../theme/theme';
@@ -19,12 +20,28 @@ interface Props {
 export default function DishCard({ dish, place }: Props) {
   const band = BANDS[Math.abs(place.id) % BANDS.length];
   const allergens = [...new Set((dish.allergens ?? []).map(prettifyToken))];
+  const photoUrl = resolveApiUrl(place.photo_url);
+  const [showPhoto, setShowPhoto] = useState(Boolean(photoUrl));
+
+  useEffect(() => {
+    setShowPhoto(Boolean(photoUrl));
+  }, [photoUrl]);
 
   return (
     <View style={styles.card}>
-      <View style={[styles.band, { backgroundColor: band }]}>
-        {dish.category ? <Chip label={dish.category} small /> : null}
-      </View>
+      {photoUrl && showPhoto ? (
+        <ImageBackground
+          source={{ uri: photoUrl }}
+          style={styles.band}
+          imageStyle={styles.bandImage}
+          resizeMode="cover"
+          onError={() => setShowPhoto(false)}
+        />
+      ) : (
+        <View style={[styles.band, { backgroundColor: band }]}>
+          {dish.category ? <Chip label={dish.category} small /> : null}
+        </View>
+      )}
 
       <View style={styles.body}>
         <Text style={styles.name}>{dish.name}</Text>
@@ -64,6 +81,14 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     alignItems: 'flex-start',
     justifyContent: 'flex-end',
+  },
+  bandImage: {
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+  },
+  photoShade: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(28,27,26,0.18)',
   },
   body: {
     flex: 1,
