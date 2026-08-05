@@ -46,6 +46,29 @@ _SCRAPER_FIELDS = [
 ]
 
 
+def _menu_key(item: dict) -> tuple[str, str, str]:
+    """Stable identity for a scraped weekly menu item."""
+    return (
+        str(item.get("name", "")).strip().casefold(),
+        str(item.get("day") or "").strip().casefold(),
+        str(item.get("category") or "").strip().casefold(),
+    )
+
+
+def _preserve_menu_images(old_menu: list[dict], new_menu: list[dict]) -> list[dict]:
+    """Keep generated URLs when a scraper replaces the JSON menu wholesale."""
+    old_images = {
+        _menu_key(item): item["image_url"]
+        for item in old_menu
+        if item.get("image_url")
+    }
+    for item in new_menu:
+        image_url = old_images.get(_menu_key(item))
+        if image_url and not item.get("image_url"):
+            item["image_url"] = image_url
+    return new_menu
+
+
 async def _upsert(session: AsyncSession, places: list[Place]) -> tuple[int, int]:
     created = updated = 0
     for place in places:
@@ -57,6 +80,8 @@ async def _upsert(session: AsyncSession, places: list[Place]) -> tuple[int, int]
         for field in _SCRAPER_FIELDS:
             value = getattr(place, field)
             if value:  # don't clobber existing data with None / [] / ""
+                if field == "menu":
+                    value = _preserve_menu_images(existing.menu or [], value)
                 setattr(existing, field, value)
         updated += 1
     await session.commit()

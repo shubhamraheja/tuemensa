@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { resolveApiUrl } from '../lib/api';
 import { getOpenStatus } from '../lib/hours';
 import { formatType } from '../lib/format';
 import { PlaceWithDistance } from '../types';
@@ -14,6 +15,7 @@ interface Props {
 /** Deliberately minimal row: dot · name · type · distance. Details live in the sheet. */
 function PlaceRow({ place, onPress }: Props) {
   const status = getOpenStatus(place.opening_hours);
+  const photoUrl = resolveApiUrl(place.photo_url);
 
   return (
     <Pressable
@@ -22,7 +24,11 @@ function PlaceRow({ place, onPress }: Props) {
       accessibilityLabel={`${place.name}, ${formatType(place)}, ${place.distance_text ?? ''}`}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
-      <OpenDot state={status.state} />
+      {photoUrl ? (
+        <Image source={{ uri: photoUrl }} style={styles.photo} resizeMode="cover" />
+      ) : (
+        <OpenDot state={status.state} />
+      )}
       <View style={styles.main}>
         <Text style={styles.name} numberOfLines={1}>
           {place.name}
@@ -57,6 +63,12 @@ const styles = StyleSheet.create({
   main: {
     flex: 1,
     gap: 2,
+  },
+  photo: {
+    width: 44,
+    height: 44,
+    borderRadius: radii.md,
+    backgroundColor: palette.surfaceAlt,
   },
   name: {
     ...type.body,

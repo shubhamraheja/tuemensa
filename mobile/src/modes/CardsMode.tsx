@@ -32,7 +32,7 @@ export default function CardsMode({ places }: Props) {
             accessibilityLabel={item.name}
             style={({ pressed }) => [styles.card, shadow.card, pressed && styles.pressed]}
           >
-            <GradientThumb name={item.name} seed={item.id} />
+            <GradientThumb name={item.name} seed={item.id} photoUrl={item.photo_url} />
             <View style={styles.body}>
               <Text style={styles.name} numberOfLines={1}>
                 {item.name}

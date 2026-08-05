@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import logging
 
+import hashlib
+from pathlib import Path
+
+import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +20,8 @@ from ..models.place import Place, PlaceType, PriceRange
 from . import maps
 
 logger = logging.getLogger(__name__)
+PHOTO_CACHE_DIR = Path(__file__).resolve().parents[2] / "uploads" / "photos"
+PHOTO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Google place type -> our PlaceType enum, in priority order.
 _TYPE_PRIORITY: list[tuple[str, PlaceType]] = [
@@ -88,11 +94,59 @@ def _price_units(money: dict | None) -> int | None:
     return int(units) if units is not None else None
 
 
+def _photo_fields(raw: dict) -> tuple[str | None, list[str]]:
+    photos = raw.get("photos") or []
+    if not photos:
+        return None, []
+    first = photos[0]
+    attributions = [
+        attribution["displayName"]
+        for attribution in first.get("authorAttributions", [])
+        if attribution.get("displayName")
+    ]
+    return first.get("name"), attributions
+
+
+async def _cache_photo(place: Place, photo_name: str | None) -> bool:
+    if not photo_name:
+        return False
+
+    try:
+        uri = await maps.photo_uri(photo_name, max_width_px=1200)
+    except maps.MapsError:
+        return False
+
+    hash_value = hashlib.sha1(photo_name.encode("utf-8")).hexdigest()[:16]
+    cache_path = PHOTO_CACHE_DIR / f"{place.id or 'place'}-{hash_value}.jpg"
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.get(uri)
+            response.raise_for_status()
+            cache_path.write_bytes(response.content)
+    except Exception:  # noqa: BLE001
+        if cache_path.exists():
+            cache_path.unlink(missing_ok=True)
+        return False
+
+    place.photo_cache_file = cache_path.name
+    return True
+
+
+def _apply_photo_fields(place: Place, raw: dict) -> bool:
+    photo_name, photo_attributions = _photo_fields(raw)
+    if not photo_name:
+        return False
+    place.photo_name = photo_name
+    place.photo_attributions = photo_attributions
+    return True
+
+
 def _to_place(raw: dict) -> Place:
     types = raw.get("types", [])
     loc = raw.get("location", {})
     price_level = raw.get("priceLevel")
     price_range = raw.get("priceRange") or {}
+    photo_name, photo_attributions = _photo_fields(raw)
     return Place(
         google_place_id=raw["id"],
         name=raw.get("displayName", {}).get("text", "Unnamed place"),
@@ -111,6 +165,8 @@ def _to_place(raw: dict) -> Place:
         user_rating_count=raw.get("userRatingCount"),
         google_maps_uri=raw.get("googleMapsUri"),
         website_uri=raw.get("websiteUri"),
+        photo_name=photo_name,
+        photo_attributions=photo_attributions,
     )
 
 
@@ -132,12 +188,49 @@ async def seed_places(session: AsyncSession) -> int:
     for raw in raw_places:
         if raw["id"] in existing_ids:
             continue
-        session.add(_to_place(raw))
+        place = _to_place(raw)
+        session.add(place)
+        await session.flush()
+        if place.photo_name and not place.photo_cache_file:
+            await _cache_photo(place, place.photo_name)
         existing_ids.add(raw["id"])
         inserted += 1
 
     await session.commit()
     return inserted
+
+
+async def refresh_missing_place_photos(session: AsyncSession) -> int:
+    """Backfill photo metadata for existing DB rows with a Google place id."""
+    places = (
+        await session.scalars(
+            select(Place)
+            .where(Place.google_place_id.is_not(None))
+            .where(Place.photo_name.is_(None))
+        )
+    ).all()
+    if not places:
+        return 0
+
+    updated = 0
+    for place in places:
+        try:
+            raw = await maps.place_photo_details(place.google_place_id)
+        except maps.MapsError as exc:
+            logger.warning("Skipping photo backfill for %s: %s", place.name, exc)
+            continue
+        except Exception:  # noqa: BLE001
+            logger.exception("Photo backfill failed for %s", place.name)
+            continue
+        if raw and _apply_photo_fields(place, raw):
+            if await _cache_photo(place, place.photo_name):
+                updated += 1
+            else:
+                updated += 1
+
+    if updated:
+        await session.commit()
+    return updated
 
 
 async def seed_places_if_empty(session: AsyncSession) -> int:
@@ -148,6 +241,12 @@ async def seed_places_if_empty(session: AsyncSession) -> int:
     """
     count = await session.scalar(select(func.count()).select_from(Place))
     if count:
+        try:
+            updated = await refresh_missing_place_photos(session)
+            if updated:
+                logger.info("Backfilled photos for %s existing places.", updated)
+        except maps.MapsError as exc:
+            logger.warning("Skipping photo backfill: %s", exc)
         logger.info("Places table already populated (%s rows); skipping seed.", count)
         return 0
 

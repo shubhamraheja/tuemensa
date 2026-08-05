@@ -7,6 +7,7 @@ from .core.database import SessionLocal, init_db
 from .core.scheduler import shutdown_scheduler, start_scheduler
 from .api.router import api_router
 from .services.seed import seed_places_if_empty
+from .services.dish_images import generate_missing_dish_images
 from .scrapers.run import scrape_all
 
 
@@ -16,8 +17,13 @@ async def lifespan(app: FastAPI):
     # Call 1: fill the DB with Tübingen places on first boot (only if empty).
     async with SessionLocal() as session:
         await seed_places_if_empty(session)
-    # Scrape mensa menus + enrich, in the background so startup isn't blocked.
-    app.state.initial_scrape = asyncio.create_task(scrape_all(enrich=True))
+    async def refresh_menus_and_images():
+        # Images run after the scrape so fresh dishes are eligible immediately.
+        await scrape_all(enrich=True)
+        return await generate_missing_dish_images()
+
+    # Run without blocking API startup; the scheduler continues filling later batches.
+    app.state.initial_scrape = asyncio.create_task(refresh_menus_and_images())
     # Weekly Monday-morning menu refresh.
     start_scheduler()
     try:

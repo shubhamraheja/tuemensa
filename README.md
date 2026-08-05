@@ -11,10 +11,12 @@ tuemensa/
 
 ## Docker Compose
 
-Create a root `.env` file with your Google Maps key:
+Create a root `.env` file with your Google Maps key. To generate menu-item
+photos, also create a Hugging Face access token with Inference Providers access:
 
 ```bash
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+HUGGINGFACE_TOKEN=hf_your_token_here
 ```
 
 Then run the full stack:
@@ -51,6 +53,33 @@ Endpoints are prefixed with `/api/v1`.
 | DELETE | `/places/{id}` | Delete place |
 | POST | `/places/scrape` | Run the mensa scrapers now (debug; disabled in production) |
 | GET | `/health` | Health check |
+
+### Generated dish images
+
+When `HUGGINGFACE_TOKEN` is set, the backend scans menu JSON for items without
+`image_url`. It sends a food-photography prompt to `black-forest-labs/FLUX.1-schnell`
+through Hugging Face Inference Providers (with automatic provider fallback),
+stores an optimized WebP under `backend/uploads/dish-images`, and writes the
+public `/api/v1/places/dish-images/<file>.webp` URL back into that menu item.
+The startup scrape triggers the first batch; APScheduler retries a small batch
+every 30 minutes. Tune `DISH_IMAGE_BATCH_SIZE`, `DISH_IMAGE_INTERVAL_MINUTES`,
+`HUGGINGFACE_MODEL`, or set `DISH_IMAGE_GENERATION_ENABLED=false` in the backend
+environment as needed.
+
+### Provider fallback
+
+Generation tries Hugging Face first, then Cloudflare Workers AI when both
+variables below are set, and finally Pollinations when its API key is set:
+
+```env
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+CLOUDFLARE_WORKERS_AI_TOKEN=your_workers_ai_token
+POLLINATIONS_API_KEY=your_pollinations_server_key
+```
+
+Cloudflare uses `@cf/bytedance/stable-diffusion-xl-lightning`, a fast image
+model. Pollinations' current API requires an API key; it is therefore disabled
+unless `POLLINATIONS_API_KEY` is supplied.
 
 ## Frontend
 

@@ -1,4 +1,6 @@
 import enum
+from pathlib import Path
+from urllib.parse import quote
 
 from sqlalchemy import JSON, Boolean, Enum, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -89,7 +91,21 @@ class Place(Base):
     google_maps_uri: Mapped[str | None] = mapped_column(String(512), nullable=True)
     website_uri: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
+    # Google Places photo resource name + required attribution display names.
+    # The actual photo URL is short-lived, so clients call the backend proxy.
+    photo_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    photo_attributions: Mapped[list] = mapped_column(JSON, default=list)
+    photo_cache_file: Mapped[str | None] = mapped_column(String(512), nullable=True)
+
     # If True, this place's data is ignored downstream.
     ignore: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false", nullable=False
     )
+
+    @property
+    def photo_url(self) -> str | None:
+        if self.photo_cache_file:
+            return f"/api/v1/places/photo-cache/{self.photo_cache_file}"
+        if not self.photo_name:
+            return None
+        return f"/api/v1/places/photo?name={quote(self.photo_name, safe='')}&max_width_px=1200"

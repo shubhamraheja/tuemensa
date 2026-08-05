@@ -11,6 +11,8 @@ class MenuItem(BaseModel):
     day: str | None = None  # "Mon".."Fri" for weekly menus; None if not day-specific
     category: str | None = None  # e.g. "Tagesmenü vegan", "Main Course", "DESSERT"
     allergens: list[str] = []
+    # Generated food photograph, served by the backend from object/static storage.
+    image_url: str | None = None
 
 
 class OpeningHours(BaseModel):
@@ -39,6 +41,9 @@ class PlaceBase(BaseModel):
     user_rating_count: int | None = None
     google_maps_uri: str | None = None
     website_uri: str | None = None
+    photo_name: str | None = None
+    photo_url: str | None = None
+    photo_attributions: list[str] | None = None
     ignore: bool = False
 
 
@@ -65,6 +70,8 @@ class PlaceUpdate(BaseModel):
     user_rating_count: int | None = None
     google_maps_uri: str | None = None
     website_uri: str | None = None
+    photo_name: str | None = None
+    photo_attributions: list[str] | None = None
     ignore: bool | None = None
 
 

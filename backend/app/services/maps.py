@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import math
+from urllib.parse import quote
 
 import httpx
 
@@ -25,6 +26,7 @@ TUEBINGEN_CENTER = (48.5216, 9.0576)
 
 NEARBY_SEARCH_URL = "https://places.googleapis.com/v1/places:searchNearby"
 TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+PLACE_DETAILS_URL = "https://places.googleapis.com/v1/places"
 ROUTE_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
 
 NEARBY_FIELD_MASK = ",".join(
@@ -41,8 +43,12 @@ NEARBY_FIELD_MASK = ",".join(
         "places.googleMapsUri",
         "places.websiteUri",
         "places.regularOpeningHours",
+        "places.photos.name",
+        "places.photos.authorAttributions.displayName",
     ]
 )
+
+PHOTO_FIELD_MASK = "photos.name,photos.authorAttributions.displayName"
 
 # Food place types to search for, one Nearby Search each.
 FOOD_TYPES = ["restaurant", "cafe", "bakery", "meal_takeaway"]
@@ -175,6 +181,59 @@ async def search_text(query: str) -> dict | None:
 
     places = response.json().get("places", [])
     return places[0] if places else None
+
+
+async def place_photo_details(place_id: str) -> dict | None:
+    """Fetch just photo metadata for an existing Google place id."""
+    key = _require_key()
+    headers = {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": PHOTO_FIELD_MASK,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(f"{PLACE_DETAILS_URL}/{quote(place_id, safe='')}", headers=headers)
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise MapsError(f"Google place details failed: {exc}") from exc
+    data = response.json()
+    return data if data.get("photos") else None
+
+
+async def photo_uri(
+    photo_name: str,
+    *,
+    max_width_px: int = 1200,
+    max_height_px: int | None = None,
+) -> str:
+    """Resolve a Google Places photo resource name to a short-lived image URI."""
+    key = _require_key()
+    if not photo_name.startswith("places/") or "/photos/" not in photo_name:
+        raise MapsError("Invalid Google Places photo name")
+
+    params: dict[str, str | int | bool] = {
+        "key": key,
+        "maxWidthPx": max_width_px,
+        "skipHttpRedirect": True,
+    }
+    if max_height_px is not None:
+        params["maxHeightPx"] = max_height_px
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            encoded_name = quote(photo_name, safe="/")
+            response = await client.get(
+                f"https://places.googleapis.com/v1/{encoded_name}/media",
+                params=params,
+            )
+            response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise MapsError(f"Google photo request failed: {exc}") from exc
+
+    uri = response.json().get("photoUri")
+    if not uri:
+        raise MapsError("Google photo response did not include photoUri")
+    return uri
 
 
 async def distance_matrix(

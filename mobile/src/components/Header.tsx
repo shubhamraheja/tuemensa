@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { locationLabel, useLocationStore } from '../stores/useLocationStore';
 import { useUiStore } from '../stores/useUiStore';
-import { fonts, palette, radii, spacing, type } from '../theme/theme';
+import { palette, radii, spacing, type } from '../theme/theme';
+
+const LOGO = require('../../assets/tüeats.png');
 
 /** App mark · location chip (opens LocationSheet) · profile gear. */
 export default function Header() {
@@ -13,9 +15,9 @@ export default function Header() {
 
   return (
     <View style={styles.header}>
-      <Text style={styles.mark}>
-        Tü<Text style={styles.markAccent}>Mensa</Text>
-      </Text>
+      <View style={styles.brand}>
+        <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+      </View>
 
       <Pressable
         onPress={() => setLocationSheetOpen(true)}
@@ -52,13 +54,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
-  mark: {
-    ...type.title,
-    color: palette.ink,
-    fontFamily: fonts.semibold,
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
-  markAccent: {
-    color: palette.tangerine,
+  logo: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.md,
+    backgroundColor: palette.surfaceAlt,
+    padding: 4,
   },
   locationChip: {
     flex: 1,

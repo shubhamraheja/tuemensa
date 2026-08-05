@@ -1,3 +1,6 @@
+# Dependencies (Catch-all)
+node_modules/
+
 # macOS
 .DS_Store
 .AppleDouble
@@ -10,6 +13,7 @@
 # Environment
 .env
 .env.local
+backend/uploads/dish-images/
 
 # Logs
 *.log
@@ -17,6 +21,8 @@ npm-debug.log*
 yarn-error.log*
 
 # ─── Mobile (Expo / React Native) ─────────────────────────────────────────────
+android/
+ios/
 mobile/node_modules/
 mobile/.expo/
 mobile/dist/
