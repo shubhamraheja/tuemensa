@@ -17,6 +17,7 @@ export interface MenuItem {
   day?: string | null; // "Mon".."Fri" for weekly menus; null if not day-specific
   category?: string | null;
   allergens?: string[];
+  image_url?: string | null;
 }
 
 export interface OpeningHours {

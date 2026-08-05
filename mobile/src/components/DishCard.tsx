@@ -20,7 +20,9 @@ interface Props {
 export default function DishCard({ dish, place }: Props) {
   const band = BANDS[Math.abs(place.id) % BANDS.length];
   const allergens = [...new Set((dish.allergens ?? []).map(prettifyToken))];
-  const photoUrl = resolveApiUrl(place.photo_url);
+  // A dish image is generated from the menu item; place photography is only a
+  // graceful fallback while the background worker has not created one yet.
+  const photoUrl = resolveApiUrl(dish.image_url ?? place.photo_url);
   const [showPhoto, setShowPhoto] = useState(Boolean(photoUrl));
 
   useEffect(() => {

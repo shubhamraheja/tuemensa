@@ -13,6 +13,7 @@ node_modules/
 # Environment
 .env
 .env.local
+backend/uploads/dish-images/
 
 # Logs
 *.log

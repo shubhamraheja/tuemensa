@@ -11,6 +11,8 @@ class MenuItem(BaseModel):
     day: str | None = None  # "Mon".."Fri" for weekly menus; None if not day-specific
     category: str | None = None  # e.g. "Tagesmenü vegan", "Main Course", "DESSERT"
     allergens: list[str] = []
+    # Generated food photograph, served by the backend from object/static storage.
+    image_url: str | None = None
 
 
 class OpeningHours(BaseModel):

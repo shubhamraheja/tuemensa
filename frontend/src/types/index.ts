@@ -14,6 +14,7 @@ export interface MenuItem {
   day?: string | null;
   category?: string | null;
   allergens?: string[];
+  image_url?: string | null;
 }
 
 export interface OpeningHours {

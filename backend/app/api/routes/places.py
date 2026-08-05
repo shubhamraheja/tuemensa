@@ -17,6 +17,7 @@ from ...schemas.place import (
     PlaceWithDistance,
 )
 from ...services import maps
+from ...services.dish_images import DISH_IMAGE_DIR
 
 router = APIRouter(prefix="/places", tags=["places"])
 
@@ -38,6 +39,9 @@ async def trigger_scrape():
     from ...scrapers.run import scrape_all
 
     summary = await scrape_all(enrich=True)
+    from ...services.dish_images import generate_missing_dish_images
+
+    summary["image_generation"] = await generate_missing_dish_images()
     return {"success": True, **summary}
 
 
@@ -111,6 +115,17 @@ async def get_cached_photo(filename: str):
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="Photo not found")
     return FileResponse(file_path)
+
+
+@router.get("/dish-images/{filename}")
+async def get_dish_image(filename: str):
+    """Serve an optimized generated menu-item image by its opaque filename."""
+    if Path(filename).name != filename or not filename.endswith(".webp"):
+        raise HTTPException(status_code=404, detail="Image not found")
+    file_path = DISH_IMAGE_DIR / filename
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path, media_type="image/webp")
 
 
 @router.get("/", response_model=list[PlaceRead])
