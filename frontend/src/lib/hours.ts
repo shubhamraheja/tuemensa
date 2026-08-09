@@ -87,7 +87,7 @@ export function getOpenStatus(hours: OpeningHours[] | undefined): OpenStatus {
   const intervals = buildIntervals(hours);
   if (intervals.length === 0) return {state: 'unknown'};
 
-  const {weekMinutes: now, dayIndex: _dayIndex} = berlinNow();
+  const {weekMinutes: now} = berlinNow();
 
   // Open right now?
   for (const iv of intervals) {
