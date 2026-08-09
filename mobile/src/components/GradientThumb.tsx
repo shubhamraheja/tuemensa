@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4EEE5',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
   letter: {

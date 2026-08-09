@@ -79,7 +79,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   band: {
-    height: 120,
+    // The food image is the primary swipe cue, so give it most of the card.
+    height: 250,
     padding: spacing.lg,
     alignItems: 'flex-start',
     justifyContent: 'flex-end',

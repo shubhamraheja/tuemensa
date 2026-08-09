@@ -5,7 +5,7 @@ import GradientThumb from '../components/GradientThumb';
 
 describe('GradientThumb', () => {
   it('shows the first letter when no photo is available', () => {
-    let tree: renderer.ReactTestRenderer;
+    let tree!: renderer.ReactTestRenderer;
 
     act(() => {
       tree = renderer.create(<GradientThumb name="Mensa" seed={1} />);
