@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { resolveApiUrl } from '../lib/api';
 import { fonts, radii } from '../theme/theme';
@@ -23,11 +23,9 @@ interface Props {
 /** Thumbnail that prefers a restaurant photo and falls back to the initial letter. */
 export default function GradientThumb({ name, seed, height = 88, photoUrl }: Props) {
   const resolvedPhotoUrl = resolveApiUrl(photoUrl);
-  const [showPhoto, setShowPhoto] = useState(Boolean(resolvedPhotoUrl));
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    setShowPhoto(Boolean(resolvedPhotoUrl));
-  }, [resolvedPhotoUrl]);
+  const showPhoto = Boolean(resolvedPhotoUrl) && failedUrl !== resolvedPhotoUrl;
 
   if (resolvedPhotoUrl && showPhoto) {
     return (
@@ -35,7 +33,7 @@ export default function GradientThumb({ name, seed, height = 88, photoUrl }: Pro
         source={{ uri: resolvedPhotoUrl }}
         style={[styles.thumb, styles.photo, { height }]}
         resizeMode="cover"
-        onError={() => setShowPhoto(false)}
+        onError={() => setFailedUrl(resolvedPhotoUrl)}
       />
     );
   }

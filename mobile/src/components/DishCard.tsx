@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { prettifyToken } from '../lib/allergens';
 import { resolveApiUrl } from '../lib/api';
@@ -20,14 +20,11 @@ interface Props {
 export default function DishCard({ dish, place }: Props) {
   const band = BANDS[Math.abs(place.id) % BANDS.length];
   const allergens = [...new Set((dish.allergens ?? []).map(prettifyToken))];
-  // A dish image is generated from the menu item; place photography is only a
-  // graceful fallback while the background worker has not created one yet.
+  
   const photoUrl = resolveApiUrl(dish.image_url ?? place.photo_url);
-  const [showPhoto, setShowPhoto] = useState(Boolean(photoUrl));
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    setShowPhoto(Boolean(photoUrl));
-  }, [photoUrl]);
+  const showPhoto = Boolean(photoUrl) && failedUrl !== photoUrl;
 
   return (
     <View style={styles.card}>
@@ -37,7 +34,7 @@ export default function DishCard({ dish, place }: Props) {
           style={styles.band}
           imageStyle={styles.bandImage}
           resizeMode="cover"
-          onError={() => setShowPhoto(false)}
+          onError={() => setFailedUrl(photoUrl)}
         />
       ) : (
         <View style={[styles.band, { backgroundColor: band }]}>
@@ -79,7 +76,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   band: {
-    // The food image is the primary swipe cue, so give it most of the card.
     height: 250,
     padding: spacing.lg,
     alignItems: 'flex-start',
