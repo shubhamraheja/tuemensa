@@ -1,7 +1,10 @@
 import { Place, PlaceWithDistance } from '../types';
 
 // EXPO_PUBLIC_* vars are inlined at bundle time (restart expo after changes).
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+// Web uses the current origin so a reverse proxy can keep the backend private.
+export const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (typeof window !== 'undefined' ? '/api/v1' : 'http://localhost:8000/api/v1');
 
 export function resolveApiUrl(path: string | null | undefined): string | null {
   if (!path) return null;
