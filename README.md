@@ -48,12 +48,7 @@ The main user flow is:
 ```text
 Open TüEats
       ↓
-See today's food options
-      ↓
-Browse Mensa dishes
-      ↓
-Review dish information
-(photo, name, price, allergens, location/distance)
+See today's food options in mensa
       ↓
 Swipe through dishes
       ↓
