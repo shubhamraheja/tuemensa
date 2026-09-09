@@ -27,11 +27,17 @@ export const getPlacesWithDistances = (params: {
   latitude: number;
   longitude: number;
   mode?: 'walking' | 'driving' | 'bicycling' | 'transit';
+  cuisine?: string | null;
+  vegetarian?: boolean;
+  vegan?: boolean;
 }) => {
   const query = new URLSearchParams({
     latitude: String(params.latitude),
     longitude: String(params.longitude),
     mode: params.mode ?? 'walking',
   });
+  if (params.cuisine) query.set('cuisine', params.cuisine);
+  if (params.vegetarian) query.set('vegetarian', 'true');
+  if (params.vegan) query.set('vegan', 'true');
   return request<PlaceWithDistance[]>(`/places/distances?${query}`);
 };

@@ -42,9 +42,24 @@ function requestLocation(): Promise<Located> {
   });
 }
 
+const CUISINE_CHIPS = [
+  'Turkish',
+  'Indian',
+  'Italian',
+  'German',
+  'Asian',
+  'Greek',
+  'American',
+  'Mediterranean',
+  'Middle Eastern',
+];
+
 export default function HomePage() {
   const [mode, setMode] = useState<DisplayMode>('list');
   const [filterId, setFilterId] = useState('all');
+  const [cuisine, setCuisine] = useState<string | null>(null);
+  const [vegetarian, setVegetarian] = useState(false);
+  const [vegan, setVegan] = useState(false);
   const [places, setPlaces] = useState<PlaceWithDistance[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +68,11 @@ export default function HomePage() {
   const [scrapeMsg, setScrapeMsg] = useState<string | null>(null);
 
   // App-open flow: locate the user, then fetch DB places with live distances.
-  const load = useCallback(async () => {
+  const load = useCallback(async (
+    selectedCuisine?: string | null,
+    selectedVegetarian?: boolean,
+    selectedVegan?: boolean,
+  ) => {
     setLoading(true);
     setError(null);
     try {
@@ -63,6 +82,9 @@ export default function HomePage() {
         latitude: where.latitude,
         longitude: where.longitude,
         mode: 'walking',
+        cuisine: selectedCuisine ?? null,
+        vegetarian: selectedVegetarian,
+        vegan: selectedVegan,
       });
       setPlaces(data);
     } catch {
@@ -79,7 +101,7 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(null, false, false);
   }, [load]);
 
   // Debug: run the mensa scrapers, then reload.
@@ -99,6 +121,29 @@ export default function HomePage() {
     }
   }, [load]);
 
+  const handleCuisineChip = useCallback(
+    (chip: string) => {
+      const next = cuisine === chip ? null : chip;
+      setCuisine(next);
+      void load(next, vegetarian, vegan);
+    },
+    [cuisine, vegetarian, vegan, load],
+  );
+
+  const handleVegetarian = useCallback(() => {
+    const next = !vegetarian;
+    setVegetarian(next);
+    if (next) setVegan(false);
+    void load(cuisine, next, false);
+  }, [vegetarian, cuisine, vegan, load]);
+
+  const handleVegan = useCallback(() => {
+    const next = !vegan;
+    setVegan(next);
+    if (next) setVegetarian(false);
+    void load(cuisine, false, next);
+  }, [vegan, cuisine, vegetarian, load]);
+
   const shown = useMemo(() => {
     const filter = TYPE_FILTERS.find(f => f.id === filterId);
     if (!filter?.types) return places;
@@ -116,7 +161,7 @@ export default function HomePage() {
           </p>
         </div>
         <div className="home-actions">
-          <button type="button" className="locate-btn" onClick={() => void load()}>
+          <button type="button" className="locate-btn" onClick={() => void load(cuisine, vegetarian, vegan)}>
             Use my location
           </button>
           <button
@@ -142,6 +187,34 @@ export default function HomePage() {
             ))}
           </select>
         </label>
+      </div>
+
+      <div className="cuisine-chips">
+        <button
+          type="button"
+          className={`chip${vegetarian ? ' active' : ''}`}
+          onClick={handleVegetarian}
+        >
+          🥗 Vegetarian
+        </button>
+        <button
+          type="button"
+          className={`chip${vegan ? ' active' : ''}`}
+          onClick={handleVegan}
+        >
+          🌱 Vegan
+        </button>
+        <span className="chip-divider" />
+        {CUISINE_CHIPS.map(chip => (
+          <button
+            key={chip}
+            type="button"
+            className={`chip${cuisine === chip ? ' active' : ''}`}
+            onClick={() => handleCuisineChip(chip)}
+          >
+            {chip}
+          </button>
+        ))}
       </div>
 
       {scrapeMsg && <div className="banner">{scrapeMsg}</div>}

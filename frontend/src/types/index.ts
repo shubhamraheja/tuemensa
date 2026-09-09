@@ -33,6 +33,8 @@ export interface Place {
   address?: string | null;
   place_type?: PlaceType | null;
   cuisine?: string | null;
+  is_vegetarian_friendly?: boolean | null;
+  is_vegan_friendly?: boolean | null;
   google_types: string[];
   menu: MenuItem[];
   opening_hours: OpeningHours[];

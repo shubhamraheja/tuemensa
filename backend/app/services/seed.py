@@ -31,6 +31,34 @@ _TYPE_PRIORITY: list[tuple[str, PlaceType]] = [
     ("restaurant", PlaceType.RESTAURANT),
 ]
 
+# Google cuisine-specific place types -> clean cuisine label.
+_CUISINE_MAP: dict[str, str] = {
+    "turkish_restaurant": "Turkish",
+    "italian_restaurant": "Italian",
+    "indian_restaurant": "Indian",
+    "german_restaurant": "German",
+    "chinese_restaurant": "Chinese",
+    "japanese_restaurant": "Japanese",
+    "asian_restaurant": "Asian",
+    "thai_restaurant": "Thai",
+    "vietnamese_restaurant": "Vietnamese",
+    "greek_restaurant": "Greek",
+    "american_restaurant": "American",
+    "mexican_restaurant": "Mexican",
+    "french_restaurant": "French",
+    "mediterranean_restaurant": "Mediterranean",
+    "middle_eastern_restaurant": "Middle Eastern",
+    "lebanese_restaurant": "Lebanese",
+    "korean_restaurant": "Korean",
+    "sushi_restaurant": "Japanese",
+    "pizza_restaurant": "Italian",
+    "kebab_shop": "Turkish",
+    "falafel_restaurant": "Middle Eastern",
+    "ramen_restaurant": "Japanese",
+    "spanish_restaurant": "Spanish",
+}
+
+
 # Google priceLevel -> our PriceRange enum.
 _PRICE_MAP: dict[str, PriceRange] = {
     "PRICE_LEVEL_FREE": PriceRange.LOW,
@@ -44,6 +72,14 @@ _PRICE_MAP: dict[str, PriceRange] = {
 # Google weekday index (0 = Sunday) -> short label and Monday-first sort order.
 _DAY_LABEL = {0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat"}
 _DAY_ORDER = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 0: 6}
+
+
+def _cuisine(types: list[str]) -> str | None:
+    for google_type in types:
+        label = _CUISINE_MAP.get(google_type)
+        if label:
+            return label
+    return None
 
 
 def _classify(types: list[str]) -> PlaceType | None:
@@ -147,14 +183,16 @@ def _to_place(raw: dict) -> Place:
     price_level = raw.get("priceLevel")
     price_range = raw.get("priceRange") or {}
     photo_name, photo_attributions = _photo_fields(raw)
+    name = raw.get("displayName", {}).get("text", "Unnamed place")
     return Place(
         google_place_id=raw["id"],
-        name=raw.get("displayName", {}).get("text", "Unnamed place"),
+        name=name,
         location="Tübingen",
         address=raw.get("formattedAddress"),
         latitude=loc.get("latitude"),
         longitude=loc.get("longitude"),
         place_type=_classify(types),
+        cuisine=_cuisine(types),
         google_types=types,
         opening_hours=_opening_hours(raw),
         price_level=price_level,

@@ -17,6 +17,7 @@ export type RadiusKm = 0.5 | 1 | 2.5 | 5;
 interface UiState {
   displayMode: DisplayMode;
   typeFilter: TypeFilter;
+  cuisineFilter: string | null;
   radiusKm: RadiusKm;
   /** Swipe deck: only dishes from places open now or opening again today. */
   openTodayOnly: boolean;
@@ -25,6 +26,7 @@ interface UiState {
   profileSheetOpen: boolean;
   setDisplayMode: (mode: DisplayMode) => void;
   setTypeFilter: (filter: TypeFilter) => void;
+  setCuisineFilter: (cuisine: string | null) => void;
   setRadiusKm: (radius: RadiusKm) => void;
   setOpenTodayOnly: (on: boolean) => void;
   selectPlace: (id: number | null) => void;
@@ -35,6 +37,7 @@ interface UiState {
 export const useUiStore = create<UiState>(set => ({
   displayMode: 'list',
   typeFilter: 'all',
+  cuisineFilter: null,
   radiusKm: 2.5,
   openTodayOnly: true,
   selectedPlaceId: null,
@@ -42,6 +45,7 @@ export const useUiStore = create<UiState>(set => ({
   profileSheetOpen: false,
   setDisplayMode: displayMode => set({ displayMode }),
   setTypeFilter: typeFilter => set({ typeFilter }),
+  setCuisineFilter: cuisineFilter => set({ cuisineFilter }),
   setRadiusKm: radiusKm => set({ radiusKm }),
   setOpenTodayOnly: openTodayOnly => set({ openTodayOnly }),
   selectPlace: selectedPlaceId => set({ selectedPlaceId }),

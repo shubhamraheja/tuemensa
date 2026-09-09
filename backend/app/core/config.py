@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     cloudflare_workers_ai_model: str = "@cf/bytedance/stable-diffusion-xl-lightning"
     pollinations_api_key: str | None = None
     pollinations_model: str = "flux"
+    groq_api_key: str | None = None
     dish_image_generation_enabled: bool = True
     dish_image_batch_size: int = 3
     dish_image_max_dimension: int = 1024

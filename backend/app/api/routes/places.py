@@ -50,6 +50,9 @@ async def get_places_with_distances(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
     mode: str = Query("walking", pattern="^(walking|driving|bicycling|transit)$"),
+    cuisine: str | None = Query(None),
+    vegetarian: bool | None = Query(None),
+    vegan: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
     """Call 2 — read places from the DB and attach the travel distance from the
@@ -58,14 +61,19 @@ async def get_places_with_distances(
     Uses the Routes API when available; if it isn't (no key / billing disabled /
     transport error) it falls back to straight-line distances and logs a warning.
     """
-    places = (
-        await db.scalars(
-            select(Place)
-            .where(Place.ignore.is_(False))
-            .where(Place.latitude.is_not(None))
-            .where(Place.longitude.is_not(None))
-        )
-    ).all()
+    q = (
+        select(Place)
+        .where(Place.ignore.is_(False))
+        .where(Place.latitude.is_not(None))
+        .where(Place.longitude.is_not(None))
+    )
+    if cuisine:
+        q = q.where(Place.cuisine.ilike(cuisine))
+    if vegetarian:
+        q = q.where(Place.is_vegetarian_friendly.is_(True))
+    if vegan:
+        q = q.where(Place.is_vegan_friendly.is_(True))
+    places = (await db.scalars(q)).all()
 
     results = [PlaceWithDistance.model_validate(place) for place in places]
 
@@ -132,6 +140,9 @@ async def get_dish_image(filename: str):
 async def get_places(
     location: str | None = None,
     place_type: PlaceType | None = None,
+    cuisine: str | None = None,
+    vegetarian: bool | None = None,
+    vegan: bool | None = None,
     include_ignored: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
@@ -140,6 +151,12 @@ async def get_places(
         query = query.where(Place.location == location)
     if place_type:
         query = query.where(Place.place_type == place_type)
+    if cuisine:
+        query = query.where(Place.cuisine.ilike(cuisine))
+    if vegetarian:
+        query = query.where(Place.is_vegetarian_friendly.is_(True))
+    if vegan:
+        query = query.where(Place.is_vegan_friendly.is_(True))
     if not include_ignored:
         query = query.where(Place.ignore.is_(False))
     result = await db.scalars(query.order_by(Place.name))

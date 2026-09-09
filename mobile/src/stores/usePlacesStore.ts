@@ -11,7 +11,7 @@ interface PlacesState {
   loading: boolean;
   error: string | null;
   lastCoords: LatLng | null;
-  fetchFor: (coords: LatLng, force?: boolean) => Promise<void>;
+  fetchFor: (coords: LatLng, force?: boolean, cuisine?: string | null, diet?: 'none' | 'vegetarian' | 'vegan') => Promise<void>;
 }
 
 /** Fill any missing distance fields locally so the UI can always show one. */
@@ -42,13 +42,15 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
   loading: false,
   error: null,
   lastCoords: null,
-  fetchFor: async (coords, force = false) => {
+  fetchFor: async (coords, force = false, cuisine = null, diet = 'none') => {
     const { lastCoords, places } = get();
     if (
       !force &&
       lastCoords &&
       places.length > 0 &&
-      haversineMeters(lastCoords, coords) < REFETCH_THRESHOLD_M
+      haversineMeters(lastCoords, coords) < REFETCH_THRESHOLD_M &&
+      !cuisine &&
+      diet === 'none'
     ) {
       return;
     }
@@ -56,7 +58,12 @@ export const usePlacesStore = create<PlacesState>((set, get) => ({
     try {
       let result: PlaceWithDistance[];
       try {
-        result = await getPlacesWithDistances(coords);
+        result = await getPlacesWithDistances({
+          ...coords,
+          cuisine,
+          vegetarian: diet === 'vegetarian',
+          vegan: diet === 'vegan',
+        });
       } catch {
         // Distance endpoint down — plain list + local straight-line distances.
         result = await getPlaces();

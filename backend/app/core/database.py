@@ -76,6 +76,12 @@ async def init_db() -> None:
                 text("ALTER TABLE places ADD COLUMN IF NOT EXISTS photo_cache_file VARCHAR(512)")
             )
             await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS is_vegetarian_friendly BOOLEAN")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS is_vegan_friendly BOOLEAN")
+            )
+            await conn.execute(
                 text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS ix_places_google_place_id "
                     "ON places (google_place_id)"

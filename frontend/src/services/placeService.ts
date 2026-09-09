@@ -13,6 +13,9 @@ export const getPlacesWithDistances = (params: {
   latitude: number;
   longitude: number;
   mode?: 'walking' | 'driving' | 'bicycling' | 'transit';
+  cuisine?: string | null;
+  vegetarian?: boolean;
+  vegan?: boolean;
 }) =>
   apiClient
     .get<PlaceWithDistance[]>('/places/distances', {params})

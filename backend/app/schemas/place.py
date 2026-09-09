@@ -30,6 +30,8 @@ class PlaceBase(BaseModel):
     address: str | None = None
     place_type: PlaceType | None = None
     cuisine: str | None = None
+    is_vegetarian_friendly: bool | None = None
+    is_vegan_friendly: bool | None = None
     google_types: list[str] = []
     menu: list[MenuItem] = []
     opening_hours: list[OpeningHours] = []
@@ -59,6 +61,8 @@ class PlaceUpdate(BaseModel):
     address: str | None = None
     place_type: PlaceType | None = None
     cuisine: str | None = None
+    is_vegetarian_friendly: bool | None = None
+    is_vegan_friendly: bool | None = None
     google_types: list[str] | None = None
     menu: list[MenuItem] | None = None
     opening_hours: list[OpeningHours] | None = None

@@ -61,8 +61,12 @@ class Place(Base):
         Enum(PlaceType), nullable=True
     )
 
-    # Free-text cuisine offered, e.g. "italian", "chinese".
+    # Free-text cuisine offered, e.g. "Italian", "Turkish".
     cuisine: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Dietary flags — set by classify_cuisine.py via Groq inference.
+    is_vegetarian_friendly: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    is_vegan_friendly: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
 
     # Raw Google place types, e.g. ["restaurant", "cafe"].
     google_types: Mapped[list] = mapped_column(JSON, default=list)

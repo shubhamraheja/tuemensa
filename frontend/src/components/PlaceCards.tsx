@@ -29,6 +29,7 @@ export default function PlaceCards({places}: Props) {
               <p className="card-meta">
                 <StatusBadge hours={place.opening_hours} />
                 <span>{formatType(place)}</span>
+                {place.cuisine && <span className="tag">{place.cuisine}</span>}
                 {rating && <span>★ {rating}</span>}
                 {price && <span>{price}</span>}
               </p>
