@@ -1,6 +1,8 @@
 # TüEats — Nearby Food Finder
 
-A monorepo for **TüEats**, a lunch decision-making app that combines Tübingen Mensa menus with nearby food options. The product provides a quick, visual way for students to decide what and where to eat.
+**Link for Testing**: https://tueeats.ivory-tower.eu/
+
+**TüEats**, a lunch decision-making app that combines Tübingen Mensa menus with nearby food options. The product provides a quick, visual way for students to decide what and where to eat.
 
 ```text
 tuemensa/
@@ -21,15 +23,15 @@ TüEats is a lunch decision-making application for students in Tübingen.
 
 TüEats brings **Mensa dishes and nearby food options together in one application**.
 
-Users can browse today's Mensa dishes through a swipe-based card interface, view information such as prices and allergens, and discover alternative restaurants nearby through a map and list view.
+Users can browse today's Mensa dishes through a swipe-based card interface and discover alternative restaurants nearby through a map and list view.
 
-The product is designed to make the everyday lunch decision **faster, more visual, and easier to navigate**.
+The product is designed to make the everyday lunch decision **faster**.
 
 ### 3. Intended target group
 
 The primary target group is **students in Tübingen**, particularly students who regularly need to decide where and what to eat for lunch.
 
-The initial research focused on students using the Mensas around **Morgenstelle, Wilhelmstraße, and Prinz Karl**.
+The initial research focused on students using the Mensas around **Morgenstelle and Wilhelmstraße**.
 
 ### 4. Main problem addressed
 
@@ -74,7 +76,7 @@ The two main decision modes are:
 * **Swipe mode:** Quickly browse and react to today's dishes.
 * **Nearby mode:** Explore restaurants and other food options around the user.
 
-Filters can be used for preferences such as **vegetarian, vegan, and allergies**.
+Filters can be used for preferences such as **vegetarian and vegan**.
 
 ### 6. Current state of the prototype
 
