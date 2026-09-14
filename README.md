@@ -105,7 +105,7 @@ The prototype is functional, but several areas still require further development
 * **Data completeness:** It is difficult to provide complete and consistent information for every possible food option.
 * **Personalized recommendations:** Similar dishes can have different names, making reliable personalization difficult.
 * **Image generation:** Generated dish images depend on external AI providers and require API credentials and processing time.
-* **External APIs:** The application depends on external services such as Google APIs and image-generation providers.
+* **External APIs:** The application depends on external services such as Google APIs and image-generation providers. Some pictures may not be generated because the testing process uses a Google demo key.
 * **Maintenance:** Menus, places, images, and local recommendations need ongoing maintenance.
 * **Local tips:** Additional local recommendations require administration.
 * **Hosting:** A long-term hosting solution still needs to be established.
