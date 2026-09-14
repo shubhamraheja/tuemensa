@@ -3,7 +3,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+# using npm ci instead of npm install since that ruined the dep install process
+RUN npm ci
 
 COPY . .
 

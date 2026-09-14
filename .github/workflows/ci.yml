@@ -29,8 +29,8 @@ jobs:
         env:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
 
-  android:
-    name: Android (React Native)
+  mobile:
+    name: Mobile (Expo)
     runs-on: ubuntu-latest
 
     steps:
@@ -39,25 +39,25 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
+          node-version: '20.x'
           cache: 'npm'
-          cache-dependency-path: android/package-lock.json
+          cache-dependency-path: mobile/package-lock.json
 
       - name: Install dependencies
-        working-directory: android
-        run: npm install
+        working-directory: mobile
+        run: npm ci
 
       - name: Type check
-        working-directory: android
+        working-directory: mobile
         run: npm run type-check
 
       - name: Lint
-        working-directory: android
+        working-directory: mobile
         run: npm run lint
 
       - name: Test
-        working-directory: android
-        run: npm test
+        working-directory: mobile
+        run: npm test -- --ci
 
   frontend:
     name: Frontend (React)

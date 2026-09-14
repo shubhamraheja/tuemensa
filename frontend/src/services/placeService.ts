@@ -1,77 +1,37 @@
 import apiClient from './apiClient';
+import {Place, PlaceWithDistance} from '@/types';
 
-export type MealType = 'meal' | 'snack';
-export type PriceTier = '<5' | '5-10' | '>10';
+/** All places stored in the DB (no distances). Fallback when location is unavailable. */
+export const getPlaces = () =>
+  apiClient.get<Place[]>('/places/').then(response => response.data);
 
-export interface MenuItem {
-  name: string;
-  price?: number | null;
-}
-
-export interface OpeningHours {
-  day?: string;
-  open?: string;
-  close?: string;
-  description?: string;
-}
-
-export interface NearbySearchResult {
-  id: number;
-  google_place_id?: string | null;
-  name: string;
-  address?: string | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  rating?: number | null;
-  user_rating_count?: number | null;
-  price_tier?: PriceTier | null;
-  meal_type?: MealType | null;
-  cuisine?: string | null;
-  is_vegan_friendly?: boolean | null;
-  is_vegetarian_friendly?: boolean | null;
-  allergens?: string[] | null;
-  menu: MenuItem[];
-  opening_hours: OpeningHours[];
-  google_maps_uri?: string | null;
-  website_uri?: string | null;
-  open_now?: boolean | null;
-  distance_m?: number | null;
-}
-
-export interface NearbySearchResponse {
-  places: NearbySearchResult[];
-}
-
-export interface NearbyFoodParams {
+/**
+ * Call 2 — places from the DB with live travel distances from the given
+ * location, nearest first.
+ */
+export const getPlacesWithDistances = (params: {
   latitude: number;
   longitude: number;
-  radius: number;
-  max_results?: number;
-  meal_type?: MealType | null;
-  price_tier?: PriceTier | null;
-  is_vegan_friendly?: boolean | null;
-  is_vegetarian_friendly?: boolean | null;
-  allergens_exclude?: string[];
+  mode?: 'walking' | 'driving' | 'bicycling' | 'transit';
+  cuisine?: string | null;
+  vegetarian?: boolean;
+  vegan?: boolean;
+}) =>
+  apiClient
+    .get<PlaceWithDistance[]>('/places/distances', {params})
+    .then(response => response.data);
+
+export interface ScrapeSummary {
+  success: boolean;
+  total_places: number;
+  created: number;
+  updated: number;
+  enriched: number;
+  scrapers: {scraper: string; places: number; menu_items: number}[];
 }
 
-
-export const getNearbyFood = (params: NearbyFoodParams) => {
-  const {allergens_exclude, ...rest} = params;
-  const searchParams: Record<string, unknown> = {...rest};
-
-  // Remove nulls so they aren't sent as "null" strings
-  Object.keys(searchParams).forEach(k => {
-    if (searchParams[k] == null) delete searchParams[k];
-  });
-
-  if (allergens_exclude && allergens_exclude.length > 0) {
-    searchParams['allergens_exclude'] = allergens_exclude;
-  }
-
-  return apiClient
-    .get<NearbySearchResponse>('/places/nearby-food', {
-      params: searchParams,
-      paramsSerializer: {indexes: null}, // array params as repeated keys
-    })
-    .then(r => r.data);
-};
+/** Debug: trigger all mensa scrapers on the backend. Can take ~10-30s. */
+export const runScrapers = () =>
+  apiClient
+    .post<ScrapeSummary>('/places/scrape', undefined, {timeout: 120000})
+    .then(response => response.data);

@@ -1,38 +1,59 @@
-export interface NutritionInfo {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber?: number;
-}
+export type PlaceType =
+  | 'mensa'
+  | 'cafeteria'
+  | 'restaurant'
+  | 'cafe'
+  | 'bistro'
+  | 'bakery';
 
 export interface MenuItem {
-  id: string;
   name: string;
-  description: string;
-  price: number;
-  category: string;
+  price?: number | null;
+  /** True when the price is per 100 g rather than per dish. */
+  price_per_100g?: boolean;
+  day?: string | null;
+  category?: string | null;
   allergens?: string[];
-  nutritionInfo?: NutritionInfo;
-  available: boolean;
-  image?: string;
+  image_url?: string | null;
 }
 
-export interface Menu {
-  id: string;
-  date: string;
-  location: string;
-  items: MenuItem[];
+export interface OpeningHours {
+  day: string;
+  open: string;
+  close: string;
 }
 
-export interface Location {
-  id: string;
+export interface Place {
+  id: number;
   name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  openingHours: {day: string; open: string; close: string}[];
-  phone?: string;
-  email?: string;
-  active: boolean;
+  location: string;
+  google_place_id?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  address?: string | null;
+  place_type?: PlaceType | null;
+  cuisine?: string | null;
+  is_vegetarian_friendly?: boolean | null;
+  is_vegan_friendly?: boolean | null;
+  google_types: string[];
+  menu: MenuItem[];
+  opening_hours: OpeningHours[];
+  price_range?: string | null;
+  price_level?: string | null;
+  price_start?: number | null;
+  price_end?: number | null;
+  rating?: number | null;
+  user_rating_count?: number | null;
+  google_maps_uri?: string | null;
+  website_uri?: string | null;
+  ignore: boolean;
 }
+
+export interface PlaceWithDistance extends Place {
+  distance_meters?: number | null;
+  duration_seconds?: number | null;
+  distance_text?: string | null;
+  duration_text?: string | null;
+}
+
+export type DisplayMode = 'list' | 'cards';

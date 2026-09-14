@@ -1,11 +1,11 @@
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
-import FoodLookupPage from '@/pages/FoodLookupPage';
+import HomePage from '@/pages/HomePage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<FoodLookupPage />} />
+        <Route path="/" element={<HomePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

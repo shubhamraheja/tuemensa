@@ -1,3 +1,3 @@
-from .place import MealType, Place, PriceTier
+from .place import Place, PlaceType, PriceRange
 
-__all__ = ["Place", "MealType", "PriceTier"]
+__all__ = ["Place", "PlaceType", "PriceRange"]

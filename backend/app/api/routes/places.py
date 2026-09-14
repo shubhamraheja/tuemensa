@@ -1,257 +1,164 @@
-import math
+import hashlib
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.config import settings
 from ...core.database import get_db
-from ...models.place import MealType, Place, PriceTier
+from ...models.place import Place, PlaceType
 from ...schemas.place import (
-    NearbySearchResponse,
-    NearbySearchResult,
     PlaceCreate,
     PlaceRead,
     PlaceUpdate,
+    PlaceWithDistance,
 )
+from ...services import maps
+from ...services.dish_images import DISH_IMAGE_DIR
 
 router = APIRouter(prefix="/places", tags=["places"])
 
-GOOGLE_PLACES_URL = "https://places.googleapis.com/v1/places:searchNearby"
-GOOGLE_FIELD_MASK = ",".join([
-    "places.id",
-    "places.currentOpeningHours.openNow",
-])
-
-PRICE_LEVEL_MAP = {
-    "PRICE_LEVEL_FREE": PriceTier.UNDER_5,
-    "PRICE_LEVEL_INEXPENSIVE": PriceTier.UNDER_5,
-    "PRICE_LEVEL_MODERATE": PriceTier.FIVE_TO_TEN,
-    "PRICE_LEVEL_EXPENSIVE": PriceTier.OVER_TEN,
-    "PRICE_LEVEL_VERY_EXPENSIVE": PriceTier.OVER_TEN,
-}
-
-MEAL_GOOGLE_TYPES = {"restaurant", "meal_takeaway", "meal_delivery"}
-SNACK_GOOGLE_TYPES = {"cafe", "bakery", "coffee_shop", "ice_cream_shop"}
+PHOTO_CACHE_DIR = Path(__file__).resolve().parents[3] / "uploads" / "photos"
+PHOTO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    r = 6_371_000
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lng2 - lng1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+@router.post("/scrape")
+async def trigger_scrape():
+    """Debug-only: run all mensa scrapers now and report what was written.
+
+    Disabled in production. The scrapers also run on startup and every Monday
+    morning; this is a manual trigger for the debug stage.
+    """
+    if settings.environment == "production":
+        raise HTTPException(
+            status_code=403, detail="Scrape trigger is disabled in production"
+        )
+    from ...scrapers.run import scrape_all
+
+    summary = await scrape_all(enrich=True)
+    from ...services.dish_images import generate_missing_dish_images
+
+    summary["image_generation"] = await generate_missing_dish_images()
+    return {"success": True, **summary}
 
 
-def _infer_meal_type(types: list[str]) -> MealType | None:
-    type_set = set(types)
-    if type_set & MEAL_GOOGLE_TYPES:
-        return MealType.MEAL
-    if type_set & SNACK_GOOGLE_TYPES:
-        return MealType.SNACK
-    return None
-
-
-@router.get("/nearby-food", response_model=NearbySearchResponse)
-async def get_nearby_food(
+@router.get("/distances", response_model=list[PlaceWithDistance])
+async def get_places_with_distances(
     latitude: float = Query(..., ge=-90, le=90),
     longitude: float = Query(..., ge=-180, le=180),
-    radius: int = Query(1200, ge=100, le=5000),
-    max_results: int = Query(20, ge=1, le=20),
-    meal_type: MealType | None = Query(None),
-    price_tier: PriceTier | None = Query(None),
-    is_vegan_friendly: bool | None = Query(None),
-    is_vegetarian_friendly: bool | None = Query(None),
-    allergens_exclude: list[str] = Query(default=[]),
+    mode: str = Query("walking", pattern="^(walking|driving|bicycling|transit)$"),
+    cuisine: str | None = Query(None),
+    vegetarian: bool | None = Query(None),
+    vegan: bool | None = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    if not settings.google_maps_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GOOGLE_MAPS_API_KEY is not configured",
-        )
+    """Call 2 — read places from the DB and attach the travel distance from the
+    user's current location, nearest first.
 
-    # Step 1: Ask Google for nearby place IDs + live open_now status
-    payload = {
-        "includedTypes": ["restaurant", "cafe", "bakery", "meal_takeaway"],
-        "maxResultCount": max_results,
-        "rankPreference": "POPULARITY",
-        "locationRestriction": {
-            "circle": {
-                "center": {"latitude": float(latitude), "longitude": float(longitude)},
-                "radius": float(radius),
-            }
-        },
-    }
-    headers = {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": settings.google_maps_api_key,
-        "X-Goog-FieldMask": GOOGLE_FIELD_MASK,
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.post(GOOGLE_PLACES_URL, json=payload, headers=headers)
-            response.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Could not reach Google Places") from exc
-
-    google_results = response.json().get("places", [])
-    open_now_by_gid = {
-        p["id"]: p.get("currentOpeningHours", {}).get("openNow")
-        for p in google_results
-        if "id" in p
-    }
-    nearby_gids = list(open_now_by_gid.keys())
-
-    if not nearby_gids:
-        return {"places": []}
-
-    # Step 2: Fetch enriched records from DB for these place IDs
-    query = select(Place).where(
-        Place.google_place_id.in_(nearby_gids),
-        Place.ignore.is_(False),
+    Uses the Routes API when available; if it isn't (no key / billing disabled /
+    transport error) it falls back to straight-line distances and logs a warning.
+    """
+    q = (
+        select(Place)
+        .where(Place.ignore.is_(False))
+        .where(Place.latitude.is_not(None))
+        .where(Place.longitude.is_not(None))
     )
-    if meal_type is not None:
-        query = query.where(Place.meal_type == meal_type)
-    if price_tier is not None:
-        query = query.where(Place.price_tier == price_tier)
-    if is_vegan_friendly is not None:
-        query = query.where(Place.is_vegan_friendly == is_vegan_friendly)
-    if is_vegetarian_friendly is not None:
-        query = query.where(Place.is_vegetarian_friendly == is_vegetarian_friendly)
+    if cuisine:
+        q = q.where(Place.cuisine.ilike(cuisine))
+    if vegetarian:
+        q = q.where(Place.is_vegetarian_friendly.is_(True))
+    if vegan:
+        q = q.where(Place.is_vegan_friendly.is_(True))
+    places = (await db.scalars(q)).all()
 
-    db_places = list(await db.scalars(query))
+    results = [PlaceWithDistance.model_validate(place) for place in places]
 
-    # Filter allergen exclusions in Python (JSON column)
-    if allergens_exclude:
-        exclude_set = {a.lower() for a in allergens_exclude}
-        db_places = [
-            p for p in db_places
-            if not (p.allergens and exclude_set & {a.lower() for a in p.allergens})
-        ]
+    if results:
+        destinations = [(p.latitude, p.longitude) for p in places]
+        # Routes API when available, otherwise straight-line (logged on fallback).
+        distances = await maps.travel_distances(
+            (latitude, longitude), destinations, mode=mode
+        )
+        for item, dist in zip(results, distances):
+            if dist:
+                for field, value in dist.items():
+                    setattr(item, field, value)
 
-    # Step 3: For nearby IDs not yet in DB, insert minimal stubs
-    db_gids = {p.google_place_id for p in db_places}
-    missing_gids = set(nearby_gids) - db_gids
+    # Nearest first; places without a distance sort to the end.
+    results.sort(
+        key=lambda p: p.distance_meters if p.distance_meters is not None else float("inf")
+    )
+    return results
 
-    # Only insert stubs when no filters are active (stubs have no enrichment data)
-    if missing_gids and not any([meal_type, price_tier, is_vegan_friendly, is_vegetarian_friendly, allergens_exclude]):
-        # Re-fetch full data for stubs — need coordinates and name
-        full_mask = ",".join([
-            "places.id",
-            "places.displayName",
-            "places.formattedAddress",
-            "places.location",
-            "places.rating",
-            "places.userRatingCount",
-            "places.priceLevel",
-            "places.types",
-            "places.googleMapsUri",
-            "places.websiteUri",
-        ])
-        try:
-            async with httpx.AsyncClient(timeout=10) as client:
-                full_resp = await client.post(
-                    GOOGLE_PLACES_URL,
-                    json=payload,
-                    headers={**headers, "X-Goog-FieldMask": full_mask},
-                )
-                full_resp.raise_for_status()
-            full_results = {p["id"]: p for p in full_resp.json().get("places", []) if "id" in p}
-        except httpx.HTTPError:
-            full_results = {}
 
-        new_stubs: list[Place] = []
-        for gid in missing_gids:
-            raw = full_results.get(gid)
-            if not raw:
-                continue
-            loc = raw.get("location", {})
-            stub = Place(
-                google_place_id=gid,
-                name=raw.get("displayName", {}).get("text", "Unnamed"),
-                address=raw.get("formattedAddress"),
-                latitude=loc.get("latitude"),
-                longitude=loc.get("longitude"),
-                rating=raw.get("rating"),
-                user_rating_count=raw.get("userRatingCount"),
-                google_maps_uri=raw.get("googleMapsUri"),
-                website_uri=raw.get("websiteUri"),
-                meal_type=_infer_meal_type(raw.get("types", [])),
-                price_tier=PRICE_LEVEL_MAP.get(raw.get("priceLevel", "")),
-                menu=[],
-                opening_hours=[],
-            )
-            db.add(stub)
-            new_stubs.append(stub)
+@router.get("/photo")
+async def get_place_photo(
+    name: str = Query(..., min_length=1),
+    max_width_px: int = Query(1200, ge=1, le=4800),
+    max_height_px: int | None = Query(None, ge=1, le=4800),
+):
+    """Resolve a stored Google photo name to a short-lived image redirect."""
+    try:
+        uri = await maps.photo_uri(
+            name,
+            max_width_px=max_width_px,
+            max_height_px=max_height_px,
+        )
+    except maps.MapsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+    return RedirectResponse(uri)
 
-        if new_stubs:
-            await db.commit()
-            for stub in new_stubs:
-                await db.refresh(stub)
-            db_places.extend(new_stubs)
 
-    # Step 4: Build response ordered by Google's popularity ranking
-    gid_order = {gid: i for i, gid in enumerate(nearby_gids)}
-    db_places.sort(key=lambda p: gid_order.get(p.google_place_id, 999))
+@router.get("/photo-cache/{filename}")
+async def get_cached_photo(filename: str):
+    """Serve a locally cached place photo if one exists."""
+    file_path = PHOTO_CACHE_DIR / filename
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return FileResponse(file_path)
 
-    results: list[NearbySearchResult] = []
-    for place in db_places:
-        distance = None
-        if place.latitude is not None and place.longitude is not None:
-            distance = _haversine_m(latitude, longitude, place.latitude, place.longitude)
 
-        results.append(NearbySearchResult(
-            id=place.id,
-            google_place_id=place.google_place_id,
-            name=place.name,
-            address=place.address,
-            latitude=place.latitude,
-            longitude=place.longitude,
-            rating=place.rating,
-            user_rating_count=place.user_rating_count,
-            price_tier=place.price_tier,
-            meal_type=place.meal_type,
-            cuisine=place.cuisine,
-            is_vegan_friendly=place.is_vegan_friendly,
-            is_vegetarian_friendly=place.is_vegetarian_friendly,
-            allergens=place.allergens,
-            menu=[m if isinstance(m, dict) else m for m in (place.menu or [])],
-            opening_hours=[h if isinstance(h, dict) else h for h in (place.opening_hours or [])],
-            google_maps_uri=place.google_maps_uri,
-            website_uri=place.website_uri,
-            open_now=open_now_by_gid.get(place.google_place_id),
-            distance_m=distance,
-        ))
-
-    return {"places": results}
+@router.get("/dish-images/{filename}")
+async def get_dish_image(filename: str):
+    """Serve an optimized generated menu-item image by its opaque filename."""
+    if Path(filename).name != filename or not filename.endswith(".webp"):
+        raise HTTPException(status_code=404, detail="Image not found")
+    file_path = DISH_IMAGE_DIR / filename
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(file_path, media_type="image/webp")
 
 
 @router.get("/", response_model=list[PlaceRead])
 async def get_places(
-    meal_type: MealType | None = None,
-    price_tier: PriceTier | None = None,
-    is_vegan_friendly: bool | None = None,
-    is_vegetarian_friendly: bool | None = None,
+    location: str | None = None,
+    place_type: PlaceType | None = None,
+    cuisine: str | None = None,
+    vegetarian: bool | None = None,
+    vegan: bool | None = None,
     include_ignored: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Place)
+    if location:
+        query = query.where(Place.location == location)
+    if place_type:
+        query = query.where(Place.place_type == place_type)
+    if cuisine:
+        query = query.where(Place.cuisine.ilike(cuisine))
+    if vegetarian:
+        query = query.where(Place.is_vegetarian_friendly.is_(True))
+    if vegan:
+        query = query.where(Place.is_vegan_friendly.is_(True))
     if not include_ignored:
         query = query.where(Place.ignore.is_(False))
-    if meal_type is not None:
-        query = query.where(Place.meal_type == meal_type)
-    if price_tier is not None:
-        query = query.where(Place.price_tier == price_tier)
-    if is_vegan_friendly is not None:
-        query = query.where(Place.is_vegan_friendly == is_vegan_friendly)
-    if is_vegetarian_friendly is not None:
-        query = query.where(Place.is_vegetarian_friendly == is_vegetarian_friendly)
     result = await db.scalars(query.order_by(Place.name))
     return result.all()
 
@@ -274,7 +181,9 @@ async def create_place(body: PlaceCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{place_id}", response_model=PlaceRead)
-async def update_place(place_id: int, body: PlaceUpdate, db: AsyncSession = Depends(get_db)):
+async def update_place(
+    place_id: int, body: PlaceUpdate, db: AsyncSession = Depends(get_db)
+):
     place = await db.get(Place, place_id)
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")

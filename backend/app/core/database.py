@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
@@ -25,6 +26,67 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if conn.dialect.name == "postgresql":
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS google_place_id VARCHAR(255)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS address VARCHAR(512)")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE places ADD COLUMN IF NOT EXISTS google_types JSON "
+                    "NOT NULL DEFAULT '[]'::json"
+                )
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS price_level VARCHAR(64)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS price_start INTEGER")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS price_end INTEGER")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS rating DOUBLE PRECISION")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS user_rating_count INTEGER")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS google_maps_uri VARCHAR(512)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS website_uri VARCHAR(512)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS photo_name VARCHAR(512)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS photo_attributions JSON")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS photo_cache_file VARCHAR(512)")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS is_vegetarian_friendly BOOLEAN")
+            )
+            await conn.execute(
+                text("ALTER TABLE places ADD COLUMN IF NOT EXISTS is_vegan_friendly BOOLEAN")
+            )
+            await conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_places_google_place_id "
+                    "ON places (google_place_id)"
+                )
+            )
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
