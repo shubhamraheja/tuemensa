@@ -76,8 +76,13 @@ The two main decision modes are:
 * **Swipe mode:** Quickly browse and react to today's dishes.
 ![swipe mode](assets/screenshots/swipe.png)
 * **Nearby mode:** Explore restaurants and other food options around the user.
+![card](assets/screenshots/card.png)
+![list](assets/screenshots/list.png)
+![map](assets/screenshots/map.png)
+
 
 Filters can be used for preferences such as **vegetarian and vegan**.
+![filter](assets/screenshots/filter.png)
 
 ### 6. Current state of the prototype
 
