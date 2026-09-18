@@ -102,7 +102,6 @@ The concept also includes filters such as cuisine, vegan/vegetarian.
 
 ### So what?
 
-The value proposition is to reduce the effort involved in deciding what to eat.
 
 Instead of checking different websites or mentally comparing Mensa dishes with nearby alternatives, students can use one application to explore several possibilities.
 
@@ -127,7 +126,7 @@ The technical implementation consists of:
 - a **Python/FastAPI backend**,
 - and a **PostgreSQL database**.
 
-For Mensa information, the backend uses data sources including OpenMensa, Hungry Elk, and Max Planck. Nearby places and map-related information are supported through Google services, including the Google Places API, Google Routes API, and Google Maps Photo API.
+For Mensa information, the backend uses OpenMensa, Hungry Elk, and Max Planck. Nearby places, travel distances, and restaurant photos come from the Google Places, Routes, and Maps Photo APIs. Map rendering itself runs on Leaflet and OpenStreetMap rather than the Google Maps JavaScript API, which removed a paid, key-gated dependency from the client.
 
 The mobile interface contains the main swipe experience. A dish card can show information such as:
 
@@ -144,7 +143,11 @@ The swipe deck provides Tinder-style swipe interactions, including touch gesture
 
 The implementation reflects the problem we identified after the pivot. The backend brings information from multiple sources together, while the frontend makes this information easier to consume.
 
-A technical challenge was handling food and restaurant images. The application uses a two-level image strategy: locally cached photos are preferred, while Google photo data can be used as a fallback. If a photo is unavailable, the application can fall back to generated visual/gradient representations rather than leaving the card empty.
+A technical challenge was handling food and restaurant images. The application prefers locally cached photos, falls back to Google photo data, and if neither is available renders a coloured tile with the place's initial letter rather than leaving the card empty.
+
+A second challenge was that no data source gave us the dietary and cuisine information the filters needed. Google Places does not expose it, and restaurant websites state it inconsistently or not at all. We therefore built a classification step: for each place, the backend sends the name and an excerpt of its website to an LLM, which returns a cuisine label and vegetarian/vegan flags, with a keyword-based fallback when no website is reachable. The script only writes fields that are still empty, so manual corrections survive a re-run.
+
+The scrapers are covered by tests that run in CI on every push, since the Mensa pages they parse are the part most likely to break without warning.
 
 
 ### Now what?
@@ -157,11 +160,13 @@ With the core product working, the next step was to expose it to users and gathe
 
 ### What?
 
-To get a better understanding of how people experience the prototype, we conducted a follow-up survey with seven active testers. Their feedback gave us a clearer picture of what works well, where users experience frustration, and which features are still missing.
+We ran a follow-up survey with seven active testers of the hosted prototype.
 
-The second feedback round was more difficult than the first survey. Unlike the initial research, the application was no longer connected to a specific physical situation such as sitting in a Mensa. We often had to actively convince friends and other people to install and test the app and ask them for honest feedback.
+This round was harder than the first survey. The initial research reached students who were already sitting in a Mensa, in the exact situation the product addresses. Testing an app has no such moment: we had to persuade friends and acquaintances to install it and then ask them for honest feedback.
 
 ### So what?
+
+Testers confirmed the core flow works and they could find suitable places quickly but the feedback clustered around two problems: not enough information per restaurant, and a location signal is imprecise for the feature they valued most.
 
 ### Ease of Finding Restaurants
 
@@ -189,6 +194,8 @@ The biggest frustration was related to location accuracy. Because the prototype 
 Looking ahead, testers were especially interested in seeing more visual content. Food photos and images of individual dishes were among the most frequently requested additions. Users also wanted direct links for map navigation, support for additional cities, and quick price indicators displayed directly on restaurant cards.
 
 Other ideas included dedicated sections for local bars, favorite or frequently visited places, and a way for users themselves to submit new restaurants or listings. These suggestions could help make the app feel more personal while also expanding its usefulness beyond the current restaurant discovery experience.
+
+We acted on the filter feedback directly. Testers said the categories were too coarse and named Turkish, Italian, and Indian as examples; those are cuisine labels the classification step already produced but the interface did not expose. Cuisine filter chips shipped in September, alongside an "open today" filter for the swipe deck.
 
 ---
 
@@ -251,26 +258,3 @@ Our immediate next steps are:
 - investigate Google Play publication and GDPR requirements,
 - and explore possible partners or channels for long-term promotion and maintenance.
 
----
-
-## 9. Overall Reflection
-
-### What?
-
-At the beginning, our main expectation was to learn how to build a useful tool for everyday life. We had not developed something like this before and expected the technical implementation to be the main challenge.
-
-During the project, however, we realized that building the technology was only one part of the problem. A much harder question was whether other people actually needed and wanted to use what we were building.
-
-### So what?
-
-The biggest lesson for us was that personal usefulness does not automatically mean usefulness for other people.
-
-The first survey showed us that students do actively check food information and have frustrations with the Mensa experience. However, the Stuwe's rejection forced us to question our original solution. Later, when we tried to get people to test the new application, we experienced another challenge: people are often reluctant to install a new app when established applications already solve parts of their problem.
-
-This changed how we think about product development. It is not enough to ask whether we can build something. We also need to understand:
-
-- who has the problem,
-- when the problem occurs,
-- how people currently solve it,
-- whether they would change their behavior,
-- and what would make a new solution valuable enough to adopt.
