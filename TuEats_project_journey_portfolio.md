@@ -157,21 +157,38 @@ With the core product working, the next step was to expose it to users and gathe
 
 ### What?
 
-The project plan included testing the application over a two-week period and iterating on the frontend and features. The application was also hosted on a server so that people could test it.
+To get a better understanding of how people experience the prototype, we conducted a follow-up survey with seven active testers. Their feedback gave us a clearer picture of what works well, where users experience frustration, and which features are still missing.
 
 The second feedback round was more difficult than the first survey. Unlike the initial research, the application was no longer connected to a specific physical situation such as sitting in a Mensa. We often had to actively convince friends and other people to install and test the app and ask them for honest feedback.
 
 ### So what?
 
-The first survey was easy to contextualize: people were already in the environment where the problem occurred. In contrast, asking someone to install and test a new app required more effort.
+### Ease of Finding Restaurants
 
-We also noticed that people tend to stay with established applications that already work well for them. Even if a new product has useful features, users have little reason to switch unless it offers clear additional value.
+Overall, users found it easy to find restaurants that match their preferences. They especially liked being able to filter by category, see whether a restaurant is currently open or closed, and sort places by distance. However, some testers felt that reaching a final choice still takes too many clicks. They also mentioned that the available filters are somewhat limited and could be improved by adding more specific cuisine categories, such as Turkish, Italian, or Indian.
 
-This was an important learning point for our project: technical functionality alone is not enough to create a useful product.
+### Missing Information
+
+One of the biggest areas for improvement was the amount of information available for each restaurant. Users often missed having food photos and wanted easier access to menus and contact information. They also felt that clear price indicators, such as dollar-sign icons, would make it much easier to compare restaurants at a glance. Another useful addition would be clear information about holiday or seasonal closures directly on restaurant profiles.
+
+### User Interface and Navigation
+
+The overall layout was considered intuitive and easy to understand, but several issues became noticeable, especially on mobile. Some users found the restaurant cards and drag handles awkward to scroll through. Compared with familiar apps like Google Maps, the prototype also lacked the visual overscroll or elastic feedback that makes interactions feel more natural. On desktop, some testers felt that the interface looked stretched and did not scale as well as it could.
+
+### Most Valued Features
+
+Several features stood out as particularly useful to testers. The real-time open/closed status was one of the most appreciated features, as it allows users to quickly see which places are actually available. Users also liked having local food spots in Tübingen collected in one clean interface without the visual clutter they associate with Google Maps. The quick category selection was another feature that made finding suitable places faster and easier.
+
+### Main User Frustrations
+
+The biggest frustration was related to location accuracy. Because the prototype relied on imprecise IP-based location data instead of GPS, the distances shown to restaurants could sometimes be inaccurate. This made the distance-based experience less reliable. Other frustrations included swipe menus that did not always work as expected, the lack of food photography, and modal windows that could not always be closed in the way users naturally expected.
+
 
 ### Now what?
 
-Future testing should focus on making recruitment easier, reaching a broader range of users, and observing people using the product in the actual lunch-decision context rather than relying mainly on friends.
+Looking ahead, testers were especially interested in seeing more visual content. Food photos and images of individual dishes were among the most frequently requested additions. Users also wanted direct links for map navigation, support for additional cities, and quick price indicators displayed directly on restaurant cards.
+
+Other ideas included dedicated sections for local bars, favorite or frequently visited places, and a way for users themselves to submit new restaurants or listings. These suggestions could help make the app feel more personal while also expanding its usefulness beyond the current restaurant discovery experience.
 
 ---
 
